@@ -3,6 +3,7 @@
 ## Current Status
 - Package version: `0.2.0` (RFC-0002 implementation complete)
 - Standardized package manager: `pnpm` (configured in `GEMINI.md` and `techContext.md`)
+- Deployment policy: Strict prohibition on publishing to npmjs without explicit prior user instruction.
 - Subsystems implemented:
   - Zero-Copy Token Ring Buffer (`src/ringbuffer/`)
   - Grammar-Constrained Decoding (`src/grammar/`)

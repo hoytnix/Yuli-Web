@@ -11,6 +11,7 @@
   - [x] Continuous 4D hypercube vector blending & delta token FSM (`[-1, 1]^4`).
 - [x] Build and test verification with `pnpm test` (14/14 tests passing) and `pnpm build`.
 - [x] Tooling hygiene: Standardize strictly on `pnpm`.
+- [x] Security & deployment hygiene: Enforce strict gate against publishing to npmjs without user confirmation.
 
 ## Known Constraints & Edge Cases
 - Node 24 worker thread crash when `tsup` uses internal `dts: true` (mitigated by `tsc --emitDeclarationOnly`).

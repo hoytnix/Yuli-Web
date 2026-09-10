@@ -111,7 +111,7 @@ You operate strictly under one of two modes based on task complexity:
 * **Test Command**: `pnpm test`
 * **Build Command**: `pnpm build`
 * **Dry-Run Inspection**: `pnpm pack --dry-run`
-* **Publish Command**: `pnpm publish --access public` (requires NPM granular access token with bypass 2FA)
+* **Publish Command**: `pnpm publish --access public` (RESTRICTED: NEVER execute without explicit prior request from the user)
 
 ---
 
@@ -127,3 +127,4 @@ You operate strictly under one of two modes based on task complexity:
 * NEVER conclude an execution turn without synchronizing `activeContext.md` and `progress.md` if code or architecture was altered.
 * NEVER leave changes uncommitted or merely output git commit snippets as text; ALWAYS execute git staging and commit via `run_command`.
 * NEVER use `npm` commands; ALWAYS use `pnpm` (`pnpm test`, `pnpm build`, etc.).
+* NEVER publish packages to the npmjs registry (`pnpm publish`, `npm publish`) without explicit prior request and confirmation from the user.
