@@ -107,11 +107,11 @@ You operate strictly under one of two modes based on task complexity:
 * **Underlying Wasm Runtime**: `@wllama/wllama`
 * **Build Pipeline**: `tsup` (bundling JS/Worker) + `tsc --emitDeclarationOnly` (type declarations)
 * **Test Suite**: `vitest` (fast unit tests for parser, FSM, and state resolution)
-* **Package Manager**: `npm`
-* **Test Command**: `npm run test`
-* **Build Command**: `npm run build`
-* **Dry-Run Inspection**: `npm pack --dry-run`
-* **Publish Command**: `npm publish --access public` (requires NPM granular access token with bypass 2FA)
+* **Package Manager**: `pnpm`
+* **Test Command**: `pnpm test`
+* **Build Command**: `pnpm build`
+* **Dry-Run Inspection**: `pnpm pack --dry-run`
+* **Publish Command**: `pnpm publish --access public` (requires NPM granular access token with bypass 2FA)
 
 ---
 
@@ -126,3 +126,4 @@ You operate strictly under one of two modes based on task complexity:
 * NEVER place `"types"` after `"import"` or `"require"` in `package.json` export blocks.
 * NEVER conclude an execution turn without synchronizing `activeContext.md` and `progress.md` if code or architecture was altered.
 * NEVER leave changes uncommitted or merely output git commit snippets as text; ALWAYS execute git staging and commit via `run_command`.
+* NEVER use `npm` commands; ALWAYS use `pnpm` (`pnpm test`, `pnpm build`, etc.).

@@ -1,3 +1,5 @@
+import { Vector4D, coordinateToVector, applyVectorDelta } from '../vector/hypercube';
+
 export type Quadrant = 'EGO' | 'SHADOW' | 'SUBCONSCIOUS' | 'SUPEREGO';
 
 export interface StateVector {
@@ -19,28 +21,51 @@ export function parseCoordinate(hex: string): StateVector {
   return { hex: cleanHex, quadrant, rawBits: val };
 }
 
+export interface CCDHandlers {
+  onToken: (token: string) => void;
+  onState: (state: StateVector) => void;
+  onThought: (thought: string) => void;
+  onVectorUpdate?: (vector: Vector4D) => void;
+}
+
 export class CCDStreamParser {
   private buffer: string = '';
   private inThought: boolean = false;
   private inStateVector: boolean = false;
+  private currentVector: Vector4D = [-1, -1, -1, -1]; // Default Ego <s:00>
 
   private onTokenCb: (token: string) => void;
   private onStateCb: (state: StateVector) => void;
   private onThoughtCb: (thought: string) => void;
+  private onVectorUpdateCb?: (vector: Vector4D) => void;
 
-  constructor(handlers: {
-    onToken: (token: string) => void;
-    onState: (state: StateVector) => void;
-    onThought: (thought: string) => void;
-  }) {
+  constructor(handlers: CCDHandlers) {
     this.onTokenCb = handlers.onToken;
     this.onStateCb = handlers.onState;
     this.onThoughtCb = handlers.onThought;
+    this.onVectorUpdateCb = handlers.onVectorUpdate;
+  }
+
+  public getCurrentVector(): Vector4D {
+    return [...this.currentVector];
   }
 
   public feed(chunk: string) {
     this.buffer += chunk;
     this.processBuffer();
+  }
+
+  private scanForDeltas(text: string) {
+    const deltaRegex = /<d:([0-3])([+-])>/g;
+    let match: RegExpExecArray | null;
+    while ((match = deltaRegex.exec(text)) !== null) {
+      const dim = parseInt(match[1], 10);
+      const sign = match[2] === '+' ? 0.25 : -0.25;
+      this.currentVector = applyVectorDelta(this.currentVector, dim, sign);
+      if (this.onVectorUpdateCb) {
+        this.onVectorUpdateCb([...this.currentVector]);
+      }
+    }
   }
 
   private processBuffer() {
@@ -64,6 +89,7 @@ export class CCDStreamParser {
       if (this.inThought && this.buffer.includes('</thought>')) {
         const idx = this.buffer.indexOf('</thought>');
         const thoughtContent = this.buffer.slice(0, idx);
+        this.scanForDeltas(thoughtContent);
         this.onThoughtCb(thoughtContent);
         this.buffer = this.buffer.slice(idx + '</thought>'.length);
         this.inThought = false;
@@ -73,6 +99,7 @@ export class CCDStreamParser {
 
       if (this.inThought) {
         if (!this.buffer.includes('</thought>')) {
+          this.scanForDeltas(this.buffer);
           this.onThoughtCb(this.buffer);
           this.buffer = '';
         }
@@ -98,7 +125,12 @@ export class CCDStreamParser {
         
         const match = vectorContent.match(/<s:([0-9A-Fa-f]{2})>/);
         if (match && match[1]) {
-          this.onStateCb(parseCoordinate(match[1]));
+          const state = parseCoordinate(match[1]);
+          this.onStateCb(state);
+          this.currentVector = coordinateToVector(state.rawBits);
+          if (this.onVectorUpdateCb) {
+            this.onVectorUpdateCb([...this.currentVector]);
+          }
         }
 
         this.buffer = this.buffer.slice(idx + '</state_vector>'.length);

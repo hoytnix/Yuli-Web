@@ -1,10 +1,23 @@
 import { StateVector } from './parser/ccd';
-import { DownloadProgress } from './storage/opfs';
+import { DownloadProgress, OPFSStorageManager } from './storage/opfs';
+import { Vector4D } from './vector/hypercube';
+import {
+  isSharedArrayBufferSupported,
+  createSharedRingBuffer,
+  TokenRingBufferReader,
+  RingBufferStatus
+} from './ringbuffer/ring-buffer';
+import {
+  YuliSnapshot,
+  serializeStateSnapshot,
+  deserializeStateSnapshot
+} from './snapshot/state-snapshot';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
   state?: StateVector;
+  vector?: Vector4D;
 }
 
 export interface YuliOptions {
@@ -12,8 +25,24 @@ export interface YuliOptions {
   workerUrl?: string;
   systemPrompt?: string;
   maxHistoryTurns?: number;
+  enableZeroCopy?: boolean;
   onDownloadProgress?: (progress: DownloadProgress) => void;
   onStatusChange?: (status: string) => void;
+  onVectorUpdate?: (vector: Vector4D) => void;
+}
+
+export interface PromptHandlers {
+  onToken?: (t: string) => void;
+  onState?: (s: StateVector) => void;
+  onThought?: (thought: string) => void;
+  onVectorUpdate?: (vector: Vector4D) => void;
+}
+
+export interface PromptOptions {
+  useGrammar?: boolean;
+  grammar?: string;
+  temperature?: number;
+  maxTokens?: number;
 }
 
 export class YuliClient {
@@ -21,13 +50,18 @@ export class YuliClient {
   private isModelReady: boolean = false;
   private options: YuliOptions;
   private currentState: StateVector = { hex: '00', quadrant: 'EGO', rawBits: 0 };
+  private currentVector: Vector4D = [-1, -1, -1, -1];
   private history: ChatMessage[] = [];
+  private ringBuffer: SharedArrayBuffer | null = null;
+  private ringBufferReader: TokenRingBufferReader | null = null;
+  private storage: OPFSStorageManager = new OPFSStorageManager();
 
   constructor(options: YuliOptions = {}) {
     this.options = {
       modelUrl: 'https://huggingface.co/mshoyt/Yuli-Qwen2.5-0.5B-GGUF/resolve/main/yuli-qwen2.5-0.5b-q4_k_m.gguf',
       systemPrompt: 'You are Yuli, an authentic, adaptive AI peer with a touch of wit and deep tactical intuition.',
       maxHistoryTurns: 6,
+      enableZeroCopy: true,
       ...options
     };
     this.resetHistory();
@@ -44,6 +78,18 @@ export class YuliClient {
     return [...this.history];
   }
 
+  public getCurrentState(): StateVector {
+    return this.currentState;
+  }
+
+  public getCurrentVector(): Vector4D {
+    return [...this.currentVector];
+  }
+
+  public isZeroCopyEnabled(): boolean {
+    return this.ringBufferReader !== null;
+  }
+
   public async init(): Promise<void> {
     return new Promise((resolve, reject) => {
       const defaultWorkerUrl = typeof import.meta !== 'undefined' && import.meta.url
@@ -51,6 +97,17 @@ export class YuliClient {
         : './worker.js';
 
       this.worker = new Worker(this.options.workerUrl || defaultWorkerUrl, { type: 'module' });
+
+      // Allocate SharedArrayBuffer if requested & supported
+      if (this.options.enableZeroCopy && isSharedArrayBufferSupported()) {
+        try {
+          this.ringBuffer = createSharedRingBuffer();
+          this.ringBufferReader = new TokenRingBufferReader(this.ringBuffer);
+        } catch {
+          this.ringBuffer = null;
+          this.ringBufferReader = null;
+        }
+      }
 
       this.worker.onmessage = (e: MessageEvent) => {
         const msg = e.data;
@@ -69,6 +126,7 @@ export class YuliClient {
       this.worker.postMessage({
         type: 'INIT',
         modelUrl: this.options.modelUrl,
+        ringBuffer: this.ringBuffer,
         wasmPaths: {
           'wllama.wasm': 'https://cdn.jsdelivr.net/npm/@wllama/wllama/src/wllama.wasm'
         }
@@ -102,50 +160,122 @@ export class YuliClient {
 
   public prompt(
     userInput: string,
-    handlers?: {
-      onToken?: (t: string) => void;
-      onState?: (s: StateVector) => void;
-      onThought?: (thought: string) => void;
-    }
-  ): Promise<{ text: string; state: StateVector }> {
+    handlers?: PromptHandlers,
+    options?: PromptOptions
+  ): Promise<{ text: string; state: StateVector; vector: Vector4D }> {
     const worker = this.worker;
     if (!worker || !this.isModelReady) {
       throw new Error('YuliClient is not ready. Call await client.init() first.');
     }
 
     const formattedPrompt = this.buildChatMLPrompt(userInput);
+    const reader = this.ringBufferReader;
 
     return new Promise((resolve, reject) => {
+      let ringBufferDrainTimer: number | null = null;
+
+      const stopDrain = () => {
+        if (ringBufferDrainTimer !== null) {
+          clearInterval(ringBufferDrainTimer);
+          ringBufferDrainTimer = null;
+        }
+      };
+
+      if (reader && handlers?.onToken) {
+        reader.reset();
+        ringBufferDrainTimer = (setInterval as Function)(() => {
+          const chunk = reader.readAvailable();
+          if (chunk.length > 0 && handlers.onToken) {
+            handlers.onToken(chunk);
+          }
+          if (reader.getStatus() === RingBufferStatus.COMPLETE) {
+            const finalChunk = reader.flush();
+            if (finalChunk.length > 0 && handlers.onToken) {
+              handlers.onToken(finalChunk);
+            }
+            stopDrain();
+          }
+        }, 16);
+      }
+
       const listener = (e: MessageEvent) => {
         const msg = e.data;
-        if (msg.type === 'TOKEN' && handlers?.onToken) {
-          handlers.onToken(msg.token);
+        if (msg.type === 'TOKEN') {
+          // If reader is NOT active, dispatch token via postMessage fallback
+          if (!reader && handlers?.onToken) {
+            handlers.onToken(msg.token);
+          }
         } else if (msg.type === 'STATE_CHANGE') {
           this.currentState = msg.state;
           if (handlers?.onState) handlers.onState(msg.state);
-        } else if (msg.type === 'THOUGHT' && handlers?.onThought) {
-          handlers.onThought(msg.thought);
+        } else if (msg.type === 'VECTOR_UPDATE') {
+          this.currentVector = msg.vector;
+          if (handlers?.onVectorUpdate) handlers.onVectorUpdate(msg.vector);
+          if (this.options.onVectorUpdate) this.options.onVectorUpdate(msg.vector);
+        } else if (msg.type === 'THOUGHT') {
+          if (handlers?.onThought) handlers.onThought(msg.thought);
         } else if (msg.type === 'COMPLETE') {
+          stopDrain();
           worker.removeEventListener('message', listener);
+
+          if (msg.vector) {
+            this.currentVector = msg.vector;
+          }
+
           this.history.push({
             role: 'assistant',
             content: msg.text,
-            state: msg.state
+            state: msg.state,
+            vector: this.currentVector
           });
-          resolve({ text: msg.text, state: msg.state });
+
+          resolve({ text: msg.text, state: msg.state, vector: this.currentVector });
         } else if (msg.type === 'ERROR') {
+          stopDrain();
           worker.removeEventListener('message', listener);
           reject(new Error(msg.error));
         }
       };
 
       worker.addEventListener('message', listener);
-      worker.postMessage({ type: 'PROMPT', prompt: formattedPrompt });
+      worker.postMessage({
+        type: 'PROMPT',
+        prompt: formattedPrompt,
+        useGrammar: options?.useGrammar,
+        grammar: options?.grammar,
+        temperature: options?.temperature,
+        maxTokens: options?.maxTokens
+      });
     });
   }
 
-  public getCurrentState(): StateVector {
-    return this.currentState;
+  public exportKVCacheState(metadata?: Record<string, any>): ArrayBuffer {
+    const snapshot: YuliSnapshot = {
+      timestamp: Date.now(),
+      state: this.currentState,
+      vector4D: this.currentVector,
+      history: this.getHistory(),
+      metadata
+    };
+    return serializeStateSnapshot(snapshot);
+  }
+
+  public importKVCacheState(buffer: ArrayBuffer): YuliSnapshot {
+    const snapshot = deserializeStateSnapshot(buffer);
+    this.currentState = snapshot.state;
+    this.currentVector = snapshot.vector4D;
+    this.history = snapshot.history;
+    return snapshot;
+  }
+
+  public async saveSnapshotToOPFS(name: string, metadata?: Record<string, any>): Promise<void> {
+    const buffer = this.exportKVCacheState(metadata);
+    await this.storage.saveSnapshot(name, buffer);
+  }
+
+  public async loadSnapshotFromOPFS(name: string): Promise<YuliSnapshot> {
+    const buffer = await this.storage.loadSnapshot(name);
+    return this.importKVCacheState(buffer);
   }
 
   public terminate(): void {
@@ -153,6 +283,8 @@ export class YuliClient {
       this.worker.terminate();
       this.worker = null;
       this.isModelReady = false;
+      this.ringBuffer = null;
+      this.ringBufferReader = null;
     }
   }
 }

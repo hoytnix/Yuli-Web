@@ -1,6 +1,6 @@
 {
   "name": "@yuli-ai/web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Embedded client-side cognitive persona runtime for PWAs, WebGL, and mobile browser games",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

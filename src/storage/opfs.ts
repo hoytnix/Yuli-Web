@@ -74,4 +74,20 @@ export class OPFSStorageManager {
     await writable.close();
     return await this.getModelBlob();
   }
+
+  public async saveSnapshot(name: string, buffer: ArrayBuffer): Promise<void> {
+    const dir = await this.getDirectoryHandle();
+    const fileHandle = await dir.getFileHandle(`${name}.snap`, { create: true });
+    // @ts-ignore createWritable is standard in WebWorker OPFS environments
+    const writable: FileSystemWritableFileStream = await fileHandle.createWritable();
+    await writable.write(buffer);
+    await writable.close();
+  }
+
+  public async loadSnapshot(name: string): Promise<ArrayBuffer> {
+    const dir = await this.getDirectoryHandle();
+    const fileHandle = await dir.getFileHandle(`${name}.snap`);
+    const file = await fileHandle.getFile();
+    return await file.arrayBuffer();
+  }
 }

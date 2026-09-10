@@ -4,6 +4,7 @@
 - **Runtime / Language**: TypeScript (v5/7), Node 22/24+
 - **Wasm ML Engine**: `@wllama/wllama`
 - **Target Model**: `Qwen/Qwen2.5-0.5B-Instruct` (GGUF `Q4_K_M` ~380MB / `Q4_K_S` ~350MB)
+- **Package Manager**: `pnpm`
 - **Build Pipeline**: `tsup` (bundling JS/Worker) + `tsc --emitDeclarationOnly` (type declarations)
 - **Test Runner**: `vitest`
 - **Styling / Demo**: Tailwind CSS v4, Vite
