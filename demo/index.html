@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍜</text></svg>">
+  <title>Yuli Cognitive Engine — Multi-Turn HUD Playground</title>
+  
+  <style>
+    .font-mono-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+  </style>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="bg-neutral-950 text-neutral-100 min-h-screen flex flex-col font-mono-code p-4 md:p-6">
+  <div class="max-w-4xl w-full mx-auto flex-1 flex flex-col gap-4">
+    <header class="border-b border-neutral-800 pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+      <div>
+        <h1 class="text-lg font-bold tracking-wider text-amber-400">PROJECT YULI // COGNITIVE RUNTIME</h1>
+        <p class="text-[11px] text-neutral-400">Qwen 2.5 0.5B • Multi-Turn ChatML • On-Device OPFS Cache</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="clear-btn" class="px-2.5 py-1 text-[11px] rounded bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-300">
+          Reset Turns
+        </button>
+        <div id="runtime-status-badge" class="px-2.5 py-1 text-[11px] rounded bg-neutral-900 border border-neutral-700 text-neutral-400 font-bold uppercase">
+          Initializing...
+        </div>
+      </div>
+    </header>
+
+    <section id="progress-container" class="hidden bg-neutral-900 border border-neutral-800 p-3 rounded-lg">
+      <div class="flex justify-between text-xs mb-1 text-neutral-300">
+        <span id="progress-label">Downloading Model (Q4_K_M ~380MB)...</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="w-full bg-neutral-800 h-2 rounded overflow-hidden">
+        <div id="progress-bar" class="bg-amber-500 h-full w-0 transition-all duration-150"></div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div id="hud-ego" class="p-2.5 rounded border border-neutral-800 bg-neutral-900/50 transition-colors">
+        <div class="text-[10px] text-neutral-500 font-bold">BIT 3 // 0EE</div>
+        <div class="text-xs font-bold text-amber-400">EGO</div>
+        <div class="text-[10px] text-neutral-400">Curious • Foodie • Impulsive</div>
+      </div>
+      <div id="hud-shadow" class="p-2.5 rounded border border-neutral-800 bg-neutral-900/50 transition-colors">
+        <div class="text-[10px] text-neutral-500 font-bold">BIT 2 // 1E6</div>
+        <div class="text-xs font-bold text-red-400">SHADOW</div>
+        <div class="text-[10px] text-neutral-400">Critical • Debt Realist • Cynical</div>
+      </div>
+      <div id="hud-subconscious" class="p-2.5 rounded border border-neutral-800 bg-neutral-900/50 transition-colors">
+        <div class="text-[10px] text-neutral-500 font-bold">BIT 1 // 2E7</div>
+        <div class="text-xs font-bold text-emerald-400">SUBCONSCIOUS</div>
+        <div class="text-[10px] text-neutral-400">Pragmatic • Recipe ROI • Tactical</div>
+      </div>
+      <div id="hud-superego" class="p-2.5 rounded border border-neutral-800 bg-neutral-900/50 transition-colors">
+        <div class="text-[10px] text-neutral-500 font-bold">BIT 0 // 3E1</div>
+        <div class="text-xs font-bold text-purple-400">SUPEREGO</div>
+        <div class="text-[10px] text-neutral-400">Discipline • Boundaries • Austere</div>
+      </div>
+    </section>
+
+    <main class="flex-1 flex flex-col gap-3 min-h-[380px]">
+      <div class="flex justify-between items-center text-[10px] text-neutral-500 px-1">
+        <span class="font-bold uppercase tracking-wider text-neutral-400">THREAD LOG (MULTI-TURN)</span>
+        <span id="active-coordinate-pill" class="text-amber-400 font-bold">NODE: &lt;s:00&gt; (EGO)</span>
+      </div>
+
+      <div id="chat-container" class="flex-1 overflow-y-auto max-h-[440px] bg-neutral-900/80 border border-neutral-800 rounded-lg p-3 flex flex-col gap-3"></div>
+
+      <details class="border border-neutral-800 bg-neutral-900/40 rounded p-2">
+        <summary class="text-[10px] text-neutral-500 hover:text-neutral-300 cursor-pointer select-none">
+          View Cognitive Deliberation (<span id="thought-status">idle</span>)
+        </summary>
+        <pre id="thought-text" class="text-[10px] text-neutral-400 bg-neutral-950 p-2 rounded mt-2 border border-neutral-800/80 max-h-24 overflow-y-auto whitespace-pre-wrap"></pre>
+      </details>
+
+      <div class="flex flex-wrap gap-2">
+        <button class="preset-btn text-[10px] bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 px-2.5 py-1 rounded" data-prompt="We only have $12 left. Should we splurge on seasoned chashu or stick to plain broth?">
+          🍜 Ramen Dilemma
+        </button>
+        <button class="preset-btn text-[10px] bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 px-2.5 py-1 rounded" data-prompt="The landlord just knocked demanding late rent. Do we pay him or stock inventory?">
+          ⚠️ Debt Pressure
+        </button>
+        <button class="preset-btn text-[10px] bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 px-2.5 py-1 rounded" data-prompt="Teach me how to optimize noodle broth boiling times for maximum profit margin.">
+          ⚙️ ROI Optimization
+        </button>
+      </div>
+
+      <form id="prompt-form" class="flex gap-2">
+        <input
+          id="user-input"
+          type="text"
+          placeholder="Talk with Yuli..."
+          disabled
+          class="flex-1 bg-neutral-900 border border-neutral-800 rounded-lg px-3.5 py-2 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-amber-500 disabled:opacity-50"
+        />
+        <button
+          id="send-btn"
+          type="submit"
+          disabled
+          class="bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-bold px-4 py-2 rounded-lg text-xs transition-colors"
+        >
+          Send
+        </button>
+      </form>
+    </main>
+  </div>
+
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

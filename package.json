@@ -26,9 +26,23 @@
     "build": "tsup && tsc --emitDeclarationOnly",
     "dev": "tsup --watch",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "demo": "vite",
+    "demo:build": "vite build"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^22.20.2",
+    "tailwindcss": "^4.3.3",
+    "tsup": "^8.5.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  },
+  "dependencies": {
+    "@wllama/wllama": "^3.6.1"
   }
 }
