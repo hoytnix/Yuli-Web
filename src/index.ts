@@ -1,5 +1,5 @@
 /**
- * @yuli-ai/web - Edge Cognitive Engine
+ * @yuli-ai/web - Edge Cognitive Engine & Character SDK
  * 
  * Licensed under the Business Source License 1.1 (BSL 1.1).
  * Free for individuals and studios earning under $30,000 USD gross annual revenue.
@@ -45,6 +45,28 @@ export {
   deserializeStateSnapshot
 } from './snapshot/state-snapshot';
 export type { YuliSnapshot } from './snapshot/state-snapshot';
+
+export {
+  YuliCharacterFSM
+} from './fsm/character-fsm';
+export type {
+  FSMState,
+  GameTelemetryProvider,
+  YuliCharacterConfig,
+  YuliGamePayload
+} from './fsm/character-fsm';
+
+export {
+  compileActionGrammar,
+  parseActionTag
+} from './fsm/action-grammar';
+export type { ParsedAction } from './fsm/action-grammar';
+
+export { TypewriterBuffer } from './dialogue/typewriter';
+export type { TypewriterOptions } from './dialogue/typewriter';
+
+export { DialoguePipeline } from './dialogue/pipeline';
+export type { DialoguePipelineOptions } from './dialogue/pipeline';
 
 export const YULI_LICENSE = {
   type: 'BSL 1.1',

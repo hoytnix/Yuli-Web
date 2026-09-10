@@ -37,7 +37,18 @@
 - Binary serialization format (`YULI_SNAP_V1`) captures conversation history, discrete state vectors, and continuous 4D hypercube coordinates.
 - Supports in-memory `ArrayBuffer` checkpoints and persistent OPFS snapshots (`saveSnapshotToOPFS`/`loadSnapshotFromOPFS`) for sub-5ms CYOA narrative timeline branching.
 
-### 8. Hardware Fallback Cascade
+### 8. Universal Character FSM & Action Grammar (RFC-0003)
+- 7 discrete character states (`IDLE`, `DELIBERATING`, `THINKING`, `VECTOR_UPDATE`, `STREAMING_DIALOGUE`, `IDLE_COOLDOWN`, `ERROR`).
+- Generics-based custom intent compilation (`compileActionGrammar<TCustomIntents>`) enforcing game world actions at logit level.
+- Telemetry ingestion from game loops (`GameTelemetryProvider`) enhancing prompt context dynamically.
+- Automatic KV-cache snapshot rollback on inference error.
+
+### 9. Real-Time Dialogue Pipeline & Typewriter Engine (RFC-0003)
+- `TypewriterBuffer` decouples bursty token arrival rates from UI display rate with smooth configurable cadence.
+- Punctuation hooks (`onPunctuation`) trigger character voice blips, audio synthesizers, or screen shakes at exact punctuation marks (`.`, `!`, `?`, `,`).
+- `DialoguePipeline` coordinates parser, typewriter, and tag sanitization.
+
+### 10. Hardware Fallback Cascade
 - Automatic runtime initialization hierarchy:
   1. WebGPU Compute Shaders (70–110 TPS)
   2. Multi-Threaded WASM + 128-bit SIMD via SharedArrayBuffer (20–35 TPS)

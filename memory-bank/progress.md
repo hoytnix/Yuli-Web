@@ -9,7 +9,12 @@
   - [x] Native GBNF grammar constraints for WASM sampler (`YULI_STRICT_GBNF`).
   - [x] KV-Cache & timeline state snapshots (`YULI_SNAP_V1`, OPFS persistence).
   - [x] Continuous 4D hypercube vector blending & delta token FSM (`[-1, 1]^4`).
-- [x] Build and test verification with `pnpm test` (14/14 tests passing) and `pnpm build`.
+- [x] RFC-0003 implementation (`0.3.0`):
+  - [x] Agnostic Character FSM (7 states, telemetry injection, auto-rollback on error).
+  - [x] Dynamic Action GBNF compiler for custom generic intents (`TCustomIntents`).
+  - [x] Real-time typewriter buffer with punctuation audio triggers and instant skip.
+  - [x] Cohesive dialogue pipeline connecting parser, typewriter, and tag sanitizer.
+- [x] Build and test verification with `pnpm test` (25/25 tests passing) and `pnpm build`.
 - [x] Tooling hygiene: Standardize strictly on `pnpm`.
 - [x] Security & deployment hygiene: Enforce strict gate against publishing to npmjs without user confirmation.
 
