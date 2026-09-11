@@ -1,4 +1,4 @@
-import { YuliClient, StateVector, DownloadProgress, TelemetryStats } from '../src/index';
+import { YuliClient, StateVector, DownloadProgress, TelemetryStats, parseModelResponse } from '../src/index';
 
 const statusBadge = document.getElementById('runtime-status-badge')!;
 const downloadInterstitial = document.getElementById('download-interstitial')!;
@@ -295,6 +295,11 @@ async function handleGenerate(promptText: string) {
       }
     });
 
+    const parsed = parseModelResponse(result.rawText);
+    yuliBubble.textContent = parsed.dialogue;
+    if (parsed.thought) {
+      thoughtText.textContent = parsed.thought;
+    }
     thoughtStatus.textContent = 'resolved';
 
     // Build inline telemetry bar and copy raw button under Yuli's response bubble
@@ -346,7 +351,7 @@ async function handleGenerate(promptText: string) {
       turn: currentTurn,
       timestamp,
       prompt: promptText,
-      dialogue: result.text,
+      dialogue: parsed.dialogue,
       rawResponse: result.rawText,
       state: result.state,
       telemetry: result.telemetry

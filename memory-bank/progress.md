@@ -19,9 +19,9 @@
   - [x] Official Hugging Face repo configuration (`economyofdreams/Yuli-Qwen2.5-0.5B-Reddit-v0.1.0`).
   - [x] Demo loading interstitial overlay with dynamic OPFS download progress bar.
   - [x] Fix Wllama V3 pathConfig error (`"default"` asset path key required in `AssetsPathConfig` and modern `esm/wasm/wllama.wasm` CDN endpoint).
-- [x] Build and test verification with `pnpm test` (42/42 tests passing across 9 suites) and `pnpm build`.
+- [x] Build and test verification with `pnpm test` (43/43 tests passing across 9 suites) and `pnpm build`.
 - [x] Fix GBNF grammar parser error by implementing `getYuliGrammar()` builder explicitly joining rules with newlines and supporting hyphenated non-terminals.
-- [x] Fix deliberation tag bleeding bug: prevent partial `</thought>` chunk splitting, strip orphan tags in `CCDStreamParser`, and provide `parseModelResponse()` / `ParsedResponse` utility with tension tag routing and heuristic thought trace fallback for untagged reasoning leaks.
+- [x] Fix deliberation tag bleeding bug: prevent partial `</thought>` chunk splitting, strip orphan tags in `CCDStreamParser`, and provide `parseModelResponse()` / `ParsedResponse` utility with malformed tag sequence interception (re-routing thoughts wrapped after state vectors before stray closing tags), tension tag routing, and heuristic thought trace fallback.
 - [x] Implement inference telemetry and debug log: track TTFT, latency, token count, and TPS in worker/client, add one-click clipboard copy for complete raw responses per prompt, and inspectable debug log drawer in demo.
 - [x] Tooling hygiene: Standardize strictly on `pnpm`.
 - [x] Security & deployment hygiene: Enforce strict gate against publishing to npmjs without user confirmation.

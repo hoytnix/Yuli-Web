@@ -4,6 +4,7 @@ import { CCDStreamParser, StateVector } from './parser/ccd';
 import { TokenRingBufferWriter, RingBufferStatus } from './ringbuffer/ring-buffer';
 import { YULI_STRICT_GBNF } from './grammar/gbnf';
 import { Vector4D } from './vector/hypercube';
+import { parseModelResponse } from './dialogue/pipeline';
 
 let wllamaInstance: any = null;
 let ringBufferWriter: TokenRingBufferWriter | null = null;
@@ -183,9 +184,11 @@ self.onmessage = async (e: MessageEvent) => {
         promptPerSecond: wllamaTimings?.prompt_per_second ? Number(wllamaTimings.prompt_per_second.toFixed(1)) : undefined
       };
 
+      const parsed = parseModelResponse(rawOutput);
+
       self.postMessage({
         type: 'COMPLETE',
-        text: accumulatedDialogue.trim(),
+        text: parsed.dialogue || accumulatedDialogue.trim(),
         rawText: rawOutput,
         state: resolvedState,
         vector: parser.getCurrentVector(),

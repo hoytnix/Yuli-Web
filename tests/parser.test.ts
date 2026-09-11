@@ -169,4 +169,13 @@ describe('parseModelResponse Helper', () => {
     expect(result.state).toBe('<s:00>');
     expect(result.dialogue).toBe('You should definitely order an extra egg.');
   });
+
+  it('handles malformed tag order where thought follows state vector before stray </thought>', () => {
+    const rawOutput = '<thought></thought><state_vector><s:04></state_vector>\nCritical inspection of current noodle inventory debt.\n</thought>\nCut portion sizes by 15% immediately.';
+    const result = parseModelResponse(rawOutput);
+
+    expect(result.thought).toBe('Critical inspection of current noodle inventory debt.');
+    expect(result.state).toBe('<s:04>');
+    expect(result.dialogue).toBe('Cut portion sizes by 15% immediately.');
+  });
 });

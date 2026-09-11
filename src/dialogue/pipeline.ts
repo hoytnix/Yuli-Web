@@ -145,63 +145,81 @@ export function parseModelResponse(rawOutput: string): ParsedResponse {
     return { thought: '', state: '<s:00>', dialogue: '' };
   }
 
-  let thoughtContent = '';
+  let thought = '';
   let activeState = '<s:00>';
   let dialogue = rawOutput;
 
-  // 1. Extract explicit <thought> blocks
-  const thoughtMatch = dialogue.match(/<thought>([\s\S]*?)<\/thought>/i);
-  if (thoughtMatch) {
-    thoughtContent = thoughtMatch[1].trim();
-    dialogue = dialogue.replace(/<thought>[\s\S]*?<\/thought>/gi, '');
-  }
-
-  // Fallback: Catch custom metadata tags like <tension ...>
-  const tensionMatch = dialogue.match(/<tension[^>]*>([\s\S]*?)<\/tension>/i);
-  if (!thoughtContent && tensionMatch) {
-    thoughtContent = tensionMatch[1].trim();
-    dialogue = dialogue.replace(/<tension[^>]*>[\s\S]*?<\/tension>/gi, '');
-  }
-
-  // 2. Extract state vector or terminal DNA state tokens
-  const stateMatch = dialogue.match(/<state_vector>\s*(<s:[0-9A-F]{2}>)\s*<\/state_vector>/i) ||
-                     dialogue.match(/(<s:[0-9A-F]{2}>)/);
+  // 1. Extract state vector token if present
+  const stateMatch = rawOutput.match(/<state_vector>\s*(<s:[0-9A-F]{2}>)\s*<\/state_vector>/i) ||
+                     rawOutput.match(/(<s:[0-9A-F]{2}>)/);
   if (stateMatch) {
     activeState = stateMatch[1].trim();
-    dialogue = dialogue.replace(stateMatch[0], '');
   }
 
-  // 3. Strip all stray XML/tag remnants
-  dialogue = dialogue
-    .replace(/<\/?(?:thought|dna|state_vector|tension)[^>]*>/gi, '')
-    .replace(/<s:[0-9A-F]{2}>/gi, '')
-    .trim();
+  // 2. Handle the model's malformed tag pattern:
+  // e.g., <thought></thought><state_vector>...</state_vector>\n[Leaked Thought]\n</thought>\n[Dialogue]
+  const leakedPatternMatch = rawOutput.match(/<\/state_vector>\s*([\s\S]*?)\s*<\/thought>\s*([\s\S]*)$/i);
+  const leakedThoughtCandidate = leakedPatternMatch
+    ? leakedPatternMatch[1].replace(/<\/?(?:thought|state_vector)[^>]*>/gi, '').trim()
+    : '';
 
-  // 4. Heuristic Fallback for Untagged Thought Leaks:
+  if (leakedPatternMatch && leakedThoughtCandidate) {
+    thought = leakedThoughtCandidate;
+    dialogue = leakedPatternMatch[2]
+      .replace(/<state_vector>[\s\S]*?<\/state_vector>/gi, '')
+      .trim();
+  } else {
+    // Standard extraction fallback
+    const standardThoughtMatch = rawOutput.match(/<thought>([\s\S]*?)<\/thought>/i);
+    if (standardThoughtMatch) {
+      thought = standardThoughtMatch[1].trim();
+    }
+
+    // Fallback: Catch custom metadata tags like <tension ...>
+    const tensionMatch = rawOutput.match(/<tension[^>]*>([\s\S]*?)<\/tension>/i);
+    if (!thought && tensionMatch) {
+      thought = tensionMatch[1].trim();
+    }
+
+    // Strip tags for clean dialogue fallback
+    dialogue = rawOutput
+      .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+      .replace(/<tension[^>]*>[\s\S]*?<\/tension>/gi, '')
+      .replace(/<state_vector>[\s\S]*?<\/state_vector>/gi, '')
+      .trim();
+  }
+
+  // 3. Heuristic Fallback for Untagged Thought Leaks:
   // If the model omitted <thought> tags but outputted an internal evaluation line 
   // at the top (e.g., "Evaluating the pairing..."), pull it out into the thought trace.
-  if (!thoughtContent && dialogue.includes('\n')) {
+  if (!thought && dialogue.includes('\n')) {
     const parts = dialogue.split(/\n+/);
     if (parts.length > 1) {
       const firstLine = parts[0].trim();
       // Detect common cognitive evaluation triggers
       if (/^(evaluating|assessing|shifting|analyzing|tension|observing|calibrating|recognizing)/i.test(firstLine)) {
-        thoughtContent = firstLine;
+        thought = firstLine;
         parts.shift();
         dialogue = parts.join('\n').trim();
       }
     }
   }
 
+  // 4. Final safety sweep to purge any remaining stray XML fragments
+  dialogue = dialogue
+    .replace(/<\/?(?:thought|dna|state_vector|tension)[^>]*>/gi, '')
+    .replace(/<s:[0-9A-F]{2}>/gi, '')
+    .trim();
+
   // If the entire output was wrapped in thoughts and nothing was left for dialogue, 
   // ensure we don't display an empty bubble.
-  if (!dialogue && thoughtContent) {
-    dialogue = thoughtContent;
-    thoughtContent = 'Parsed from direct output stream.';
+  if (!dialogue && thought) {
+    dialogue = thought;
+    thought = 'Parsed from direct output stream.';
   }
 
   return {
-    thought: thoughtContent || 'Context calibrated.',
+    thought: thought || 'Context calibrated.',
     state: activeState,
     dialogue: dialogue || rawOutput
   };
