@@ -4,8 +4,8 @@ import { compileActionGrammar, parseActionTag } from '../src/fsm/action-grammar'
 describe('Action Grammar & Dynamic GBNF Compiler', () => {
   it('compiles standard GBNF when no allowedIntents are provided', () => {
     const grammar = compileActionGrammar();
-    expect(grammar).toContain('root ::= thought_block state_block dialogue_block');
-    expect(grammar).not.toContain('action_block');
+    expect(grammar).toContain('root ::= thought-block state-block dialogue-block');
+    expect(grammar).not.toContain('action-block');
   });
 
   it('compiles dynamic action grammar with custom intents', () => {
@@ -13,10 +13,10 @@ describe('Action Grammar & Dynamic GBNF Compiler', () => {
     const intents: GameIntents[] = ['ATTACK', 'DEFEND', 'BRIBE', 'FLEE'];
     const grammar = compileActionGrammar(intents);
 
-    expect(grammar).toContain('root ::= thought_block state_block action_block dialogue_block');
+    expect(grammar).toContain('root ::= thought-block state-block action-block dialogue-block');
     expect(grammar).toContain('"ATTACK" | "DEFEND" | "BRIBE" | "FLEE"');
-    expect(grammar).toContain('opt_value');
-    expect(grammar).toContain('opt_payload');
+    expect(grammar).toContain('opt-value');
+    expect(grammar).toContain('opt-payload');
   });
 
   it('parses valid action tags with value and JSON payload', () => {

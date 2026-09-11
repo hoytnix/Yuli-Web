@@ -3,6 +3,8 @@
  * Allows host game engines to bind type-safe game action intents into the WASM sampling logit mask.
  */
 
+import { YULI_STRICT_GBNF } from '../grammar/gbnf';
+
 export interface ParsedAction<TCustomIntents extends string = string> {
   intent: TCustomIntents;
   modifierValue?: number;
@@ -15,26 +17,24 @@ export interface ParsedAction<TCustomIntents extends string = string> {
  */
 export function compileActionGrammar(allowedIntents?: string[]): string {
   if (!allowedIntents || allowedIntents.length === 0) {
-    return `root ::= thought_block state_block dialogue_block
-thought_block ::= "<thought>" [^<]* "</thought>"
-state_block ::= "<state_vector><s:" hex_pair "></state_vector>"
-hex_pair ::= [0-9A-Fa-f] [0-9A-Fa-f]
-dialogue_block ::= [^\\x00]+`;
+    return YULI_STRICT_GBNF;
   }
 
   const intentChoices = allowedIntents
     .map((intent) => `"${intent.replace(/"/g, '\\"')}"`)
     .join(' | ');
 
-  return `root ::= thought_block state_block action_block dialogue_block
-thought_block ::= "<thought>" [^<]* "</thought>"
-state_block ::= "<state_vector><s:" hex_pair "></state_vector>"
-action_block ::= "<action><intent>" intent_choice "</intent>" opt_value opt_payload "</action>"
-intent_choice ::= (${intentChoices})
-opt_value ::= ("<value>" [0-9]+ "</value>")?
-opt_payload ::= ("<payload>" [^<]* "</payload>")?
-hex_pair ::= [0-9A-Fa-f] [0-9A-Fa-f]
-dialogue_block ::= [^\\x00]+`;
+  return [
+    'root ::= thought-block state-block action-block dialogue-block',
+    'thought-block ::= "<thought>" [^<]* "</thought>"',
+    'state-block ::= "<state_vector><s:" hex-pair "></state_vector>"',
+    'action-block ::= "<action><intent>" intent-choice "</intent>" opt-value opt-payload "</action>"',
+    `intent-choice ::= (${intentChoices})`,
+    'opt-value ::= ("<value>" [0-9]+ "</value>")?',
+    'opt-payload ::= ("<payload>" [^<]* "</payload>")?',
+    'hex-pair ::= [0-9A-Fa-f] [0-9A-Fa-f]',
+    'dialogue-block ::= [^\\x00]+',
+  ].join('\n');
 }
 
 /**
