@@ -4,29 +4,74 @@ export interface DownloadProgress {
   pct: number;
 }
 
+export const DEFAULT_MODEL_FILENAME = 'Yuli-Qwen2.5-0.5B-Reddit-v0.1.0-Q4_K_M.gguf';
+
+export function extractModelFileName(urlOrPath: string): string {
+  try {
+    const parsed = new URL(urlOrPath, 'http://localhost');
+    const pathname = parsed.pathname;
+    const parts = pathname.split('/');
+    const last = parts[parts.length - 1];
+    return last && last.length > 0 ? decodeURIComponent(last) : DEFAULT_MODEL_FILENAME;
+  } catch {
+    const parts = urlOrPath.split('/');
+    const last = parts[parts.length - 1];
+    return last && last.length > 0 ? last : DEFAULT_MODEL_FILENAME;
+  }
+}
+
 export class OPFSStorageManager {
   private fileName: string;
   private directoryName: string;
 
-  constructor(fileName: string = 'yuli-qwen2.5-0.5b-q4_k_m.gguf', directoryName: string = 'yuli_cache') {
+  constructor(fileName: string = DEFAULT_MODEL_FILENAME, directoryName: string = 'yuli_cache') {
     this.fileName = fileName;
     this.directoryName = directoryName;
   }
 
   private async getDirectoryHandle(): Promise<FileSystemDirectoryHandle> {
+    if (typeof navigator === 'undefined' || !navigator.storage || typeof navigator.storage.getDirectory !== 'function') {
+      throw new Error('Origin Private File System (OPFS) is not supported in this environment.');
+    }
     const root = await navigator.storage.getDirectory();
     return await root.getDirectoryHandle(this.directoryName, { create: true });
   }
 
-  public async hasCachedModel(): Promise<boolean> {
+  public async hasCachedModel(fileName?: string): Promise<boolean> {
     try {
+      if (typeof navigator === 'undefined' || !navigator.storage || typeof navigator.storage.getDirectory !== 'function') {
+        return false;
+      }
       const dir = await this.getDirectoryHandle();
-      const fileHandle = await dir.getFileHandle(this.fileName);
+      const fileHandle = await dir.getFileHandle(fileName || this.fileName);
       const file = await fileHandle.getFile();
       return file.size > 100 * 1024 * 1024; // >100MB ensures non-empty model
     } catch {
       return false;
     }
+  }
+
+  public async clearCachedModel(fileName?: string): Promise<boolean> {
+    try {
+      if (typeof navigator === 'undefined' || !navigator.storage || typeof navigator.storage.getDirectory !== 'function') {
+        return false;
+      }
+      const dir = await this.getDirectoryHandle();
+      await dir.removeEntry(fileName || this.fileName);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  public static async hasCachedModel(fileName?: string, directoryName: string = 'yuli_cache'): Promise<boolean> {
+    const manager = new OPFSStorageManager(fileName || DEFAULT_MODEL_FILENAME, directoryName);
+    return manager.hasCachedModel();
+  }
+
+  public static async clearCachedModel(fileName?: string, directoryName: string = 'yuli_cache'): Promise<boolean> {
+    const manager = new OPFSStorageManager(fileName || DEFAULT_MODEL_FILENAME, directoryName);
+    return manager.clearCachedModel();
   }
 
   public async getModelBlob(): Promise<Blob> {

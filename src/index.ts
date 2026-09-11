@@ -12,7 +12,7 @@ export type { ChatMessage, YuliOptions, PromptHandlers, PromptOptions } from './
 export { CCDStreamParser, parseCoordinate } from './parser/ccd';
 export type { StateVector, Quadrant, CCDHandlers } from './parser/ccd';
 
-export { OPFSStorageManager } from './storage/opfs';
+export { OPFSStorageManager, extractModelFileName, DEFAULT_MODEL_FILENAME } from './storage/opfs';
 export type { DownloadProgress } from './storage/opfs';
 
 export {

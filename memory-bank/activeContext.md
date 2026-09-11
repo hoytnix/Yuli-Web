@@ -13,9 +13,12 @@
   - Grammar-Constrained Decoding (`src/grammar/`)
   - KV-Cache & Timeline State Snapshot Manager (`src/snapshot/`)
   - Continuous Hypercube 4D Vector Blending (`src/vector/` & `src/parser/ccd.ts`)
-  - OPFS snapshot persistence (`src/storage/opfs.ts`)
+  - OPFS snapshot persistence & model caching manager (`src/storage/opfs.ts`)
+  - Model load/cache detection API for games (`isModelCached`, `hasCachedModel`, `isLoaded`, `isReady` on `YuliClient`)
+  - Demo setup interstitial overlay with live download progress tracking
 
 ## Active Integrations & Exports
 - Package root exports: `dist/index` and `dist/worker` with dual ESM, CJS, and `.d.ts` declaration maps.
-- Test suite: 25/25 tests passing across 7 suites via `pnpm test`.
+- Official Hugging Face repo: `https://huggingface.co/economyofdreams/Yuli-Qwen2.5-0.5B-Reddit-v0.1.0` (GGUF `Yuli-Qwen2.5-0.5B-Reddit-v0.1.0-Q4_K_M.gguf`).
+- Test suite: 29/29 tests passing across 8 suites via `pnpm test`.
 - Demo app configured with Vite in `demo/`.

@@ -14,7 +14,10 @@
   - [x] Dynamic Action GBNF compiler for custom generic intents (`TCustomIntents`).
   - [x] Real-time typewriter buffer with punctuation audio triggers and instant skip.
   - [x] Cohesive dialogue pipeline connecting parser, typewriter, and tag sanitizer.
-- [x] Build and test verification with `pnpm test` (25/25 tests passing) and `pnpm build`.
+- [x] Model load & OPFS caching state detection API (`YuliClient.isModelCached`, `isLoaded`, `isReady`, `clearCachedModel`).
+- [x] Official Hugging Face repo configuration (`economyofdreams/Yuli-Qwen2.5-0.5B-Reddit-v0.1.0`).
+- [x] Demo loading interstitial overlay with dynamic OPFS download progress bar.
+- [x] Build and test verification with `pnpm test` (29/29 tests passing) and `pnpm build`.
 - [x] Tooling hygiene: Standardize strictly on `pnpm`.
 - [x] Security & deployment hygiene: Enforce strict gate against publishing to npmjs without user confirmation.
 

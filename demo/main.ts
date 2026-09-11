@@ -1,9 +1,11 @@
 import { YuliClient, StateVector, DownloadProgress } from '../src/index';
 
 const statusBadge = document.getElementById('runtime-status-badge')!;
-const progressContainer = document.getElementById('progress-container')!;
-const progressBar = document.getElementById('progress-bar')!;
-const progressPct = document.getElementById('progress-pct')!;
+const downloadInterstitial = document.getElementById('download-interstitial')!;
+const interstitialBar = document.getElementById('interstitial-bar')!;
+const interstitialPct = document.getElementById('interstitial-pct')!;
+const interstitialBytes = document.getElementById('interstitial-bytes')!;
+const interstitialStatus = document.getElementById('interstitial-status-text')!;
 const chatContainer = document.getElementById('chat-container')!;
 const thoughtText = document.getElementById('thought-text')!;
 const thoughtStatus = document.getElementById('thought-status')!;
@@ -12,6 +14,7 @@ const promptForm = document.getElementById('prompt-form') as HTMLFormElement;
 const userInput = document.getElementById('user-input') as HTMLInputElement;
 const sendBtn = document.getElementById('send-btn') as HTMLButtonElement;
 const clearBtn = document.getElementById('clear-btn') as HTMLButtonElement;
+const clearCacheBtn = document.getElementById('clear-cache-btn') as HTMLButtonElement | null;
 
 const hudCards: Record<string, HTMLElement> = {
   EGO: document.getElementById('hud-ego')!,
@@ -60,21 +63,46 @@ const client = new YuliClient({
   maxHistoryTurns: 6,
   onStatusChange: (status: string) => {
     statusBadge.textContent = status;
+    if (!downloadInterstitial.classList.contains('hidden')) {
+      interstitialStatus.textContent = status;
+    }
   },
   onDownloadProgress: (progress: DownloadProgress) => {
-    progressContainer.classList.remove('hidden');
-    progressBar.style.width = `${progress.pct}%`;
-    progressPct.textContent = `${progress.pct}%`;
-    if (progress.pct >= 100) {
-      setTimeout(() => progressContainer.classList.add('hidden'), 1200);
-    }
+    downloadInterstitial.classList.remove('hidden');
+    interstitialBar.style.width = `${progress.pct}%`;
+    interstitialPct.textContent = `${progress.pct}%`;
+    const loadedMB = (progress.bytesLoaded / (1024 * 1024)).toFixed(1);
+    const totalMB = progress.totalBytes > 0 ? (progress.totalBytes / (1024 * 1024)).toFixed(1) : '~380';
+    interstitialBytes.textContent = `${loadedMB} MB / ${totalMB} MB`;
+    interstitialStatus.textContent = `Streaming GGUF into OPFS (${loadedMB}MB / ${totalMB}MB)...`;
   }
 });
 
 async function boot() {
   try {
-    statusBadge.textContent = 'Mounting Engine...';
+    statusBadge.textContent = 'Checking Cache...';
+
+    // Games and apps can determine whether the GGUF model is cached in OPFS:
+    const isCached = await client.isModelCached();
+    if (!isCached) {
+      // First boot: show download interstitial overlay with progress bar
+      downloadInterstitial.classList.remove('hidden');
+      interstitialStatus.textContent = 'Preparing download (~380MB GGUF)...';
+    } else {
+      statusBadge.textContent = 'Mounting Engine...';
+    }
+
     await client.init();
+
+    if (!downloadInterstitial.classList.contains('hidden')) {
+      interstitialStatus.textContent = 'Download Complete! Launching Persona HUD...';
+      interstitialBar.style.width = '100%';
+      interstitialPct.textContent = '100%';
+      setTimeout(() => {
+        downloadInterstitial.classList.add('hidden');
+      }, 500);
+    }
+
     statusBadge.textContent = 'ONLINE';
     statusBadge.classList.remove('text-neutral-400', 'border-neutral-700');
     statusBadge.classList.add('text-emerald-400', 'border-emerald-500/50', 'bg-emerald-950/30');
@@ -86,6 +114,9 @@ async function boot() {
   } catch (err: any) {
     statusBadge.textContent = 'ERROR';
     statusBadge.classList.add('text-red-400', 'border-red-500');
+    if (!downloadInterstitial.classList.contains('hidden')) {
+      interstitialStatus.textContent = `Download/Init failure: ${err.message}`;
+    }
     appendBubble('assistant', `Runtime initialization failure: ${err.message}`);
   }
 }
@@ -135,6 +166,13 @@ clearBtn.addEventListener('click', () => {
   client.resetHistory();
   chatContainer.innerHTML = '';
   appendBubble('assistant', 'Conversation context reset. Ready for a new shift.');
+});
+
+clearCacheBtn?.addEventListener('click', async () => {
+  if (confirm('Clear the cached GGUF model from OPFS? The page will reload and show the download interstitial.')) {
+    await client.clearCachedModel();
+    window.location.reload();
+  }
 });
 
 document.querySelectorAll('.preset-btn').forEach((btn) => {

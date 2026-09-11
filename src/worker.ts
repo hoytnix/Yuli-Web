@@ -1,12 +1,11 @@
 import { Wllama } from '@wllama/wllama';
-import { OPFSStorageManager } from './storage/opfs';
+import { OPFSStorageManager, extractModelFileName, DEFAULT_MODEL_FILENAME } from './storage/opfs';
 import { CCDStreamParser, StateVector } from './parser/ccd';
 import { TokenRingBufferWriter, RingBufferStatus } from './ringbuffer/ring-buffer';
 import { YULI_STRICT_GBNF } from './grammar/gbnf';
 import { Vector4D } from './vector/hypercube';
 
 let wllamaInstance: any = null;
-const storage = new OPFSStorageManager();
 let ringBufferWriter: TokenRingBufferWriter | null = null;
 
 self.onmessage = async (e: MessageEvent) => {
@@ -17,6 +16,9 @@ self.onmessage = async (e: MessageEvent) => {
       if (data.ringBuffer) {
         ringBufferWriter = new TokenRingBufferWriter(data.ringBuffer);
       }
+
+      const modelFileName = data.modelFileName || (data.modelUrl ? extractModelFileName(data.modelUrl) : DEFAULT_MODEL_FILENAME);
+      const storage = new OPFSStorageManager(modelFileName);
 
       let modelBlob: Blob;
       const cached = await storage.hasCachedModel();

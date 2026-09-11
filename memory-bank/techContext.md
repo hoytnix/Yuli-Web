@@ -3,7 +3,8 @@
 ## Technologies & Dependencies
 - **Runtime / Language**: TypeScript (v5/7), Node 22/24+
 - **Wasm ML Engine**: `@wllama/wllama`
-- **Target Model**: `Qwen/Qwen2.5-0.5B-Instruct` (GGUF `Q4_K_M` ~380MB / `Q4_K_S` ~350MB)
+- **Target Model**: `economyofdreams/Yuli-Qwen2.5-0.5B-Reddit-v0.1.0` (GGUF `Yuli-Qwen2.5-0.5B-Reddit-v0.1.0-Q4_K_M.gguf` ~380MB)
+- **Hugging Face Repo**: `https://huggingface.co/economyofdreams/Yuli-Qwen2.5-0.5B-Reddit-v0.1.0`
 - **Package Manager**: `pnpm`
 - **Build Pipeline**: `tsup` (bundling JS/Worker) + `tsc --emitDeclarationOnly` (type declarations)
 - **Test Runner**: `vitest`

@@ -1,5 +1,5 @@
 import { StateVector } from './parser/ccd';
-import { DownloadProgress, OPFSStorageManager } from './storage/opfs';
+import { DownloadProgress, OPFSStorageManager, extractModelFileName, DEFAULT_MODEL_FILENAME } from './storage/opfs';
 import { Vector4D } from './vector/hypercube';
 import {
   isSharedArrayBufferSupported,
@@ -22,6 +22,7 @@ export interface ChatMessage {
 
 export interface YuliOptions {
   modelUrl?: string;
+  modelFileName?: string;
   workerUrl?: string;
   systemPrompt?: string;
   maxHistoryTurns?: number;
@@ -54,16 +55,19 @@ export class YuliClient {
   private history: ChatMessage[] = [];
   private ringBuffer: SharedArrayBuffer | null = null;
   private ringBufferReader: TokenRingBufferReader | null = null;
-  private storage: OPFSStorageManager = new OPFSStorageManager();
+  private storage: OPFSStorageManager;
 
   constructor(options: YuliOptions = {}) {
+    const defaultModelUrl = 'https://huggingface.co/economyofdreams/Yuli-Qwen2.5-0.5B-Reddit-v0.1.0/resolve/main/Yuli-Qwen2.5-0.5B-Reddit-v0.1.0-Q4_K_M.gguf';
     this.options = {
-      modelUrl: 'https://huggingface.co/mshoyt/Yuli-Qwen2.5-0.5B-GGUF/resolve/main/yuli-qwen2.5-0.5b-q4_k_m.gguf',
+      modelUrl: defaultModelUrl,
       systemPrompt: 'You are Yuli, an authentic, adaptive AI peer with a touch of wit and deep tactical intuition.',
       maxHistoryTurns: 6,
       enableZeroCopy: true,
       ...options
     };
+    const modelFileName = this.options.modelFileName || (this.options.modelUrl ? extractModelFileName(this.options.modelUrl) : DEFAULT_MODEL_FILENAME);
+    this.storage = new OPFSStorageManager(modelFileName);
     this.resetHistory();
   }
 
@@ -88,6 +92,50 @@ export class YuliClient {
 
   public isZeroCopyEnabled(): boolean {
     return this.ringBufferReader !== null;
+  }
+
+  /**
+   * Check if the model runtime has loaded and is ready for inference.
+   */
+  public isLoaded(): boolean {
+    return this.isModelReady;
+  }
+
+  /**
+   * Alias for isLoaded().
+   */
+  public isReady(): boolean {
+    return this.isModelReady;
+  }
+
+  /**
+   * Check whether the model GGUF binary is already downloaded and cached in OPFS storage.
+   * Returns true if cached (>100MB), false otherwise.
+   */
+  public async isModelCached(): Promise<boolean> {
+    return this.storage.hasCachedModel();
+  }
+
+  /**
+   * Alias for isModelCached().
+   */
+  public async hasCachedModel(): Promise<boolean> {
+    return this.isModelCached();
+  }
+
+  /**
+   * Static helper to check whether a model is cached in OPFS without instantiating YuliClient.
+   */
+  public static async isModelCached(modelUrlOrFileName?: string, directoryName?: string): Promise<boolean> {
+    const fileName = modelUrlOrFileName ? extractModelFileName(modelUrlOrFileName) : undefined;
+    return OPFSStorageManager.hasCachedModel(fileName, directoryName);
+  }
+
+  /**
+   * Clear the cached model file from OPFS storage.
+   */
+  public async clearCachedModel(): Promise<boolean> {
+    return this.storage.clearCachedModel();
   }
 
   public async init(): Promise<void> {
@@ -123,9 +171,12 @@ export class YuliClient {
         }
       };
 
+      const targetFileName = this.options.modelFileName || (this.options.modelUrl ? extractModelFileName(this.options.modelUrl) : DEFAULT_MODEL_FILENAME);
+
       this.worker.postMessage({
         type: 'INIT',
         modelUrl: this.options.modelUrl,
+        modelFileName: targetFileName,
         ringBuffer: this.ringBuffer,
         wasmPaths: {
           'wllama.wasm': 'https://cdn.jsdelivr.net/npm/@wllama/wllama/src/wllama.wasm'
