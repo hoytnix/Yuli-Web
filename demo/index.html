@@ -123,6 +123,27 @@
         <pre id="thought-text" class="text-[10px] text-neutral-400 bg-neutral-950 p-2 rounded mt-2 border border-neutral-800/80 max-h-24 overflow-y-auto whitespace-pre-wrap"></pre>
       </details>
 
+      <!-- Debug Log & Inference Telemetry Drawer -->
+      <details id="debug-log-drawer" class="border border-neutral-800 bg-neutral-900/50 rounded-lg p-2.5">
+        <summary class="text-[10px] text-neutral-400 hover:text-amber-300 cursor-pointer select-none flex items-center justify-between">
+          <span class="flex items-center gap-1.5 font-bold uppercase tracking-wider">
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+            Debug Log & Inference Telemetry (<span id="debug-log-count">0 prompts</span>)
+          </span>
+          <div class="flex items-center gap-2">
+            <span id="latest-tps-pill" class="text-[10px] text-amber-400 font-bold font-mono">TPS: --</span>
+            <button id="copy-all-debug-btn" type="button" class="px-2 py-0.5 text-[9px] rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition-colors">
+              Copy All Logs
+            </button>
+          </div>
+        </summary>
+        <div id="debug-log-entries" class="mt-2.5 flex flex-col gap-2.5 max-h-64 overflow-y-auto pr-1">
+          <div id="debug-empty-placeholder" class="text-[10px] text-neutral-500 italic p-2 text-center">
+            No inference prompts executed yet. Send a message to inspect raw model tokens and telemetry.
+          </div>
+        </div>
+      </details>
+
       <div class="flex flex-wrap gap-2">
         <button class="preset-btn text-[10px] bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 px-2.5 py-1 rounded" data-prompt="We only have $12 left. Should we splurge on seasoned chashu or stick to plain broth?">
           🍜 Ramen Dilemma

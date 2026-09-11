@@ -40,11 +40,22 @@ export interface YuliOptions {
   onVectorUpdate?: (vector: Vector4D) => void;
 }
 
+export interface TelemetryStats {
+  ttftMs: number;
+  totalTimeMs: number;
+  tokensGenerated: number;
+  tokensPerSecond: number;
+  promptTokens?: number;
+  promptPerSecond?: number;
+}
+export type InferenceTelemetry = TelemetryStats;
+
 export interface PromptHandlers {
   onToken?: (t: string) => void;
   onState?: (s: StateVector) => void;
   onThought?: (thought: string) => void;
   onVectorUpdate?: (vector: Vector4D) => void;
+  onTelemetry?: (telemetry: TelemetryStats, rawText: string) => void;
 }
 
 export interface PromptOptions {
@@ -228,7 +239,7 @@ export class YuliClient {
     userInput: string,
     handlers?: PromptHandlers,
     options?: PromptOptions
-  ): Promise<{ text: string; state: StateVector; vector: Vector4D }> {
+  ): Promise<{ text: string; rawText: string; state: StateVector; vector: Vector4D; telemetry: TelemetryStats }> {
     const worker = this.worker;
     if (!worker || !this.isModelReady) {
       throw new Error('YuliClient is not ready. Call await client.init() first.');
@@ -295,7 +306,25 @@ export class YuliClient {
             vector: this.currentVector
           });
 
-          resolve({ text: msg.text, state: msg.state, vector: this.currentVector });
+          const rawText = msg.rawText || msg.text;
+          const telemetry: TelemetryStats = msg.telemetry || {
+            ttftMs: 0,
+            totalTimeMs: 0,
+            tokensGenerated: 0,
+            tokensPerSecond: 0
+          };
+
+          if (handlers?.onTelemetry) {
+            handlers.onTelemetry(telemetry, rawText);
+          }
+
+          resolve({
+            text: msg.text,
+            rawText,
+            state: msg.state,
+            vector: this.currentVector,
+            telemetry
+          });
         } else if (msg.type === 'ERROR') {
           stopDrain();
           worker.removeEventListener('message', listener);

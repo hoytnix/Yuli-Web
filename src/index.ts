@@ -7,7 +7,7 @@
  */
 
 export { YuliClient, DEFAULT_WASM_PATH } from './client';
-export type { ChatMessage, YuliOptions, PromptHandlers, PromptOptions, WasmPathsConfig } from './client';
+export type { ChatMessage, YuliOptions, PromptHandlers, PromptOptions, WasmPathsConfig, TelemetryStats, InferenceTelemetry } from './client';
 
 export { CCDStreamParser, parseCoordinate } from './parser/ccd';
 export type { StateVector, Quadrant, CCDHandlers } from './parser/ccd';

@@ -1,4 +1,4 @@
-import { YuliClient, StateVector, DownloadProgress } from '../src/index';
+import { YuliClient, StateVector, DownloadProgress, TelemetryStats } from '../src/index';
 
 const statusBadge = document.getElementById('runtime-status-badge')!;
 const downloadInterstitial = document.getElementById('download-interstitial')!;
@@ -15,6 +15,71 @@ const userInput = document.getElementById('user-input') as HTMLInputElement;
 const sendBtn = document.getElementById('send-btn') as HTMLButtonElement;
 const clearBtn = document.getElementById('clear-btn') as HTMLButtonElement;
 const clearCacheBtn = document.getElementById('clear-cache-btn') as HTMLButtonElement | null;
+const debugLogEntries = document.getElementById('debug-log-entries')!;
+const debugLogCount = document.getElementById('debug-log-count')!;
+const latestTpsPill = document.getElementById('latest-tps-pill')!;
+const copyAllDebugBtn = document.getElementById('copy-all-debug-btn') as HTMLButtonElement | null;
+const debugEmptyPlaceholder = document.getElementById('debug-empty-placeholder');
+
+interface DebugTurnEntry {
+  turn: number;
+  timestamp: string;
+  prompt: string;
+  dialogue: string;
+  rawResponse: string;
+  state: StateVector;
+  telemetry: TelemetryStats;
+}
+
+const debugLogHistory: DebugTurnEntry[] = [];
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+async function copyToClipboard(text: string, buttonElement?: HTMLElement): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      textArea.remove();
+    }
+
+    if (buttonElement) {
+      const originalText = buttonElement.innerHTML;
+      buttonElement.innerHTML = '✓ Copied!';
+      buttonElement.classList.add('bg-emerald-700', 'text-emerald-100', 'border-emerald-500');
+      buttonElement.classList.remove('bg-neutral-800', 'text-neutral-200', 'text-neutral-300');
+      setTimeout(() => {
+        buttonElement.innerHTML = originalText;
+        buttonElement.classList.remove('bg-emerald-700', 'text-emerald-100', 'border-emerald-500');
+        buttonElement.classList.add('bg-neutral-800', 'text-neutral-200');
+      }, 2000);
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to copy to clipboard', err);
+    if (buttonElement) {
+      buttonElement.textContent = '❌ Failed';
+      setTimeout(() => { buttonElement.textContent = 'Copy Raw'; }, 2000);
+    }
+    return false;
+  }
+}
 
 const hudCards: Record<string, HTMLElement> = {
   EGO: document.getElementById('hud-ego')!,
@@ -37,9 +102,9 @@ function updateHUD(state: StateVector) {
   activeCoordinatePill.textContent = `NODE: <s:${state.hex}> (${state.quadrant})`;
 }
 
-function appendBubble(role: 'user' | 'assistant', initialText: string = '', state?: StateVector): HTMLElement {
+function appendBubbleWithWrapper(role: 'user' | 'assistant', initialText: string = '', state?: StateVector) {
   const msgWrapper = document.createElement('div');
-  msgWrapper.className = `flex flex-col ${role === 'user' ? 'items-end' : 'items-start'}`;
+  msgWrapper.className = `flex flex-col ${role === 'user' ? 'items-end' : 'items-start'} max-w-full`;
 
   const meta = document.createElement('span');
   meta.className = 'text-[9px] text-neutral-500 mb-0.5 uppercase tracking-wider';
@@ -55,7 +120,84 @@ function appendBubble(role: 'user' | 'assistant', initialText: string = '', stat
   msgWrapper.appendChild(bubble);
   chatContainer.appendChild(msgWrapper);
   chatContainer.scrollTop = chatContainer.scrollHeight;
-  return bubble;
+  return { bubble, wrapper: msgWrapper };
+}
+
+function appendBubble(role: 'user' | 'assistant', initialText: string = '', state?: StateVector): HTMLElement {
+  return appendBubbleWithWrapper(role, initialText, state).bubble;
+}
+
+function addDebugLogEntry(entry: DebugTurnEntry) {
+  debugLogHistory.push(entry);
+  if (debugEmptyPlaceholder) {
+    debugEmptyPlaceholder.remove();
+  }
+
+  debugLogCount.textContent = `${debugLogHistory.length} prompt${debugLogHistory.length === 1 ? '' : 's'}`;
+  latestTpsPill.textContent = `TPS: ${entry.telemetry.tokensPerSecond}`;
+
+  const card = document.createElement('div');
+  card.className = 'p-2.5 rounded bg-neutral-950 border border-neutral-800/80 flex flex-col gap-2 font-mono-code text-[10px]';
+
+  const header = document.createElement('div');
+  header.className = 'flex flex-wrap items-center justify-between gap-1 border-b border-neutral-800/60 pb-1.5';
+  header.innerHTML = `
+    <div class="flex items-center gap-2">
+      <span class="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold">TURN #${entry.turn}</span>
+      <span class="text-neutral-400 font-medium truncate max-w-[280px]">"${escapeHtml(entry.prompt)}"</span>
+    </div>
+    <span class="text-neutral-500 text-[9px]">${entry.timestamp}</span>
+  `;
+
+  const telemetryRow = document.createElement('div');
+  telemetryRow.className = 'flex flex-wrap items-center gap-1.5 text-neutral-300';
+  telemetryRow.innerHTML = `
+    <span class="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold">
+      ⚡ ${entry.telemetry.tokensPerSecond} TPS
+    </span>
+    <span class="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-300">
+      ⏱️ TTFT: ${entry.telemetry.ttftMs}ms
+    </span>
+    <span class="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400">
+      ⏳ Latency: ${entry.telemetry.totalTimeMs}ms
+    </span>
+    <span class="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400">
+      🔢 ${entry.telemetry.tokensGenerated} tokens
+    </span>
+    <span class="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400">
+      📍 &lt;s:${entry.state.hex}&gt; (${entry.state.quadrant})
+    </span>
+  `;
+
+  const rawSection = document.createElement('div');
+  rawSection.className = 'flex flex-col gap-1.5';
+
+  const actionRow = document.createElement('div');
+  actionRow.className = 'flex items-center justify-between';
+  actionRow.innerHTML = `
+    <span class="text-neutral-500 text-[9px] uppercase font-bold tracking-wider">Complete Raw Response Buffer:</span>
+    <button class="entry-copy-raw-btn px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition-colors">
+      📋 Copy Raw Response
+    </button>
+  `;
+
+  const rawPre = document.createElement('pre');
+  rawPre.className = 'p-2 rounded bg-neutral-900/90 border border-neutral-800 text-neutral-300 text-[10px] whitespace-pre-wrap select-all max-h-32 overflow-y-auto';
+  rawPre.textContent = entry.rawResponse;
+
+  const copyBtn = actionRow.querySelector('.entry-copy-raw-btn') as HTMLElement;
+  copyBtn.addEventListener('click', () => {
+    copyToClipboard(entry.rawResponse, copyBtn);
+  });
+
+  rawSection.appendChild(actionRow);
+  rawSection.appendChild(rawPre);
+
+  card.appendChild(header);
+  card.appendChild(telemetryRow);
+  card.appendChild(rawSection);
+
+  debugLogEntries.prepend(card);
 }
 
 const client = new YuliClient({
@@ -121,20 +263,26 @@ async function boot() {
   }
 }
 
+let turnCounter = 0;
+
 async function handleGenerate(promptText: string) {
   if (!promptText.trim()) return;
+
+  turnCounter++;
+  const currentTurn = turnCounter;
+  const timestamp = new Date().toLocaleTimeString();
 
   appendBubble('user', promptText);
   userInput.value = '';
   userInput.disabled = true;
   sendBtn.disabled = true;
 
-  const yuliBubble = appendBubble('assistant', '');
+  const { bubble: yuliBubble, wrapper: msgWrapper } = appendBubbleWithWrapper('assistant', '');
   thoughtText.textContent = '';
   thoughtStatus.textContent = 'deliberating...';
 
   try {
-    await client.prompt(promptText, {
+    const result = await client.prompt(promptText, {
       onToken: (tok: string) => {
         yuliBubble.textContent += tok;
         chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -146,7 +294,64 @@ async function handleGenerate(promptText: string) {
         updateHUD(st);
       }
     });
+
     thoughtStatus.textContent = 'resolved';
+
+    // Build inline telemetry bar and copy raw button under Yuli's response bubble
+    const telemetryWidget = document.createElement('div');
+    telemetryWidget.className = 'mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] text-neutral-400 font-mono-code';
+    telemetryWidget.innerHTML = `
+      <span class="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold">
+        ⚡ ${result.telemetry.tokensPerSecond} TPS
+      </span>
+      <span class="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-300">
+        ⏱️ TTFT: ${result.telemetry.ttftMs}ms
+      </span>
+      <span class="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400">
+        ⏳ ${result.telemetry.totalTimeMs}ms
+      </span>
+      <span class="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400">
+        🔢 ${result.telemetry.tokensGenerated} tok
+      </span>
+      <button class="inline-copy-raw-btn px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition-colors flex items-center gap-1 font-bold">
+        📋 Copy Raw
+      </button>
+      <button class="inline-toggle-raw-btn px-1.5 py-0.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-400 border border-neutral-800 transition-colors">
+        Raw ▾
+      </button>
+    `;
+
+    const rawBox = document.createElement('div');
+    rawBox.className = 'hidden mt-1.5 p-2 rounded bg-neutral-950 border border-neutral-800 text-[10px] text-neutral-300 font-mono-code whitespace-pre-wrap select-all max-h-36 overflow-y-auto w-full max-w-[85%]';
+    rawBox.textContent = result.rawText;
+
+    const inlineCopyBtn = telemetryWidget.querySelector('.inline-copy-raw-btn') as HTMLElement;
+    inlineCopyBtn.addEventListener('click', () => {
+      copyToClipboard(result.rawText, inlineCopyBtn);
+    });
+
+    const inlineToggleBtn = telemetryWidget.querySelector('.inline-toggle-raw-btn') as HTMLElement;
+    inlineToggleBtn.addEventListener('click', () => {
+      const isHidden = rawBox.classList.toggle('hidden');
+      inlineToggleBtn.textContent = isHidden ? 'Raw ▾' : 'Hide ▴';
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    });
+
+    msgWrapper.appendChild(telemetryWidget);
+    msgWrapper.appendChild(rawBox);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    // Record into the Debug Log Drawer
+    addDebugLogEntry({
+      turn: currentTurn,
+      timestamp,
+      prompt: promptText,
+      dialogue: result.text,
+      rawResponse: result.rawText,
+      state: result.state,
+      telemetry: result.telemetry
+    });
+
   } catch (err: any) {
     yuliBubble.textContent = `[Inference Error: ${err.message}]`;
     thoughtStatus.textContent = 'aborted';
@@ -168,6 +373,15 @@ clearBtn.addEventListener('click', () => {
   appendBubble('assistant', 'Conversation context reset. Ready for a new shift.');
 });
 
+copyAllDebugBtn?.addEventListener('click', () => {
+  if (debugLogHistory.length === 0) {
+    alert('No debug logs available to copy yet.');
+    return;
+  }
+  const formatted = JSON.stringify(debugLogHistory, null, 2);
+  copyToClipboard(formatted, copyAllDebugBtn);
+});
+
 clearCacheBtn?.addEventListener('click', async () => {
   if (confirm('Clear the cached GGUF model from OPFS? The page will reload and show the download interstitial.')) {
     await client.clearCachedModel();
@@ -183,3 +397,4 @@ document.querySelectorAll('.preset-btn').forEach((btn) => {
 });
 
 boot();
+

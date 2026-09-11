@@ -81,6 +81,11 @@ self.onmessage = async (e: MessageEvent) => {
 
     let resolvedState: StateVector = { hex: '00', quadrant: 'EGO', rawBits: 0 };
     let accumulatedDialogue = '';
+    let rawOutput = '';
+    let tokenCount = 0;
+    const startTime = performance.now();
+    let firstTokenTime: number | null = null;
+    let wllamaTimings: any = null;
 
     const parser = new CCDStreamParser({
       onToken: (token: string) => {
@@ -122,11 +127,26 @@ self.onmessage = async (e: MessageEvent) => {
         onData: (chunk: any) => {
           const piece = chunk?.choices?.[0]?.text ?? chunk?.choices?.[0]?.delta?.content;
           if (piece) {
+            if (firstTokenTime === null) {
+              firstTokenTime = performance.now();
+            }
+            tokenCount++;
+            rawOutput += piece;
             parser.feed(piece);
+          }
+          if (chunk?.timings) {
+            wllamaTimings = chunk.timings;
           }
         },
         onNewToken: (_token: number, _piece: Uint8Array, currentText: string) => {
-          parser.feed(currentText);
+          if (!rawOutput) {
+            if (firstTokenTime === null) {
+              firstTokenTime = performance.now();
+            }
+            tokenCount++;
+            rawOutput += currentText;
+            parser.feed(currentText);
+          }
         }
       };
 
@@ -146,11 +166,30 @@ self.onmessage = async (e: MessageEvent) => {
         ringBufferWriter.setStatus(RingBufferStatus.COMPLETE);
       }
 
+      const endTime = performance.now();
+      const totalTimeMs = Math.round(endTime - startTime);
+      const ttftMs = firstTokenTime !== null ? Math.round(firstTokenTime - startTime) : totalTimeMs;
+      const generationTimeMs = Math.max(1, totalTimeMs - ttftMs);
+      const tokensPerSecond = tokenCount > 0
+        ? Number((tokenCount / (generationTimeMs / 1000)).toFixed(1))
+        : 0;
+
+      const telemetry = {
+        ttftMs,
+        totalTimeMs,
+        tokensGenerated: tokenCount,
+        tokensPerSecond,
+        promptTokens: wllamaTimings?.prompt_n ?? (data.prompt ? Math.round(data.prompt.length / 4) : undefined),
+        promptPerSecond: wllamaTimings?.prompt_per_second ? Number(wllamaTimings.prompt_per_second.toFixed(1)) : undefined
+      };
+
       self.postMessage({
         type: 'COMPLETE',
         text: accumulatedDialogue.trim(),
+        rawText: rawOutput,
         state: resolvedState,
-        vector: parser.getCurrentVector()
+        vector: parser.getCurrentVector(),
+        telemetry
       });
     } catch (err: any) {
       if (ringBufferWriter) {

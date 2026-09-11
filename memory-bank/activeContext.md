@@ -17,11 +17,12 @@
   - Model load/cache detection API for games (`isModelCached`, `hasCachedModel`, `isLoaded`, `isReady` on `YuliClient`)
   - Demo setup interstitial overlay with live download progress tracking
   - Wllama V3 pathConfig invariant resolution (`default` asset path pointing to `esm/wasm/wllama.wasm`, fallback defense in worker, and dual stream/onData token handling)
+  - Inference Telemetry & Raw Output Debug Log (`TelemetryStats`, `InferenceTelemetry`, TPS, TTFT, latency, token count, clipboard copy, and raw stream inspector in `demo/` and `YuliClient`)
 
 ## Active Integrations & Exports
-- Package root exports: `dist/index` and `dist/worker` with dual ESM, CJS, and `.d.ts` declaration maps.
+- Package root exports: `dist/index` and `dist/worker` with dual ESM, CJS, and `.d.ts` declaration maps (including `TelemetryStats` & `InferenceTelemetry`).
 - Official Hugging Face repo: `https://huggingface.co/economyofdreams/Yuli-Qwen2.5-0.5B-Reddit-v0.1.0` (GGUF `Yuli-Qwen2.5-0.5B-Reddit-v0.1.0-Q4_K_M.gguf`).
 - Test suite: 42/42 tests passing across 9 suites via `pnpm test`.
 - Deliberation Tag Firewall invariant: `CCDStreamParser` buffers partial closing tags (`</thought>`) across token chunk boundaries and strips orphan closing tags at stream head. Added `parseModelResponse` (`ParsedResponse`) in `src/dialogue/pipeline.ts` with heuristic thought trace fallback for untagged model reasoning leaks alongside tension tag routing and state extraction.
 - GBNF grammar parser invariant: All rules in `src/grammar/gbnf.ts` and `src/fsm/action-grammar.ts` are explicitly joined by newlines (`.join('\n')`) via `getYuliGrammar()` and use kebab-case hyphenated non-terminals (`thought-block`, `state-block`, `hex-pair`, etc.) because llama.cpp's `parse_name` rejects underscores (`_`) in rule identifiers. Legacy snake_case is accessible via `getYuliGrammar(false)`.
-- Demo app configured with Vite in `demo/`.
+- Demo app configured with Vite in `demo/` with live telemetry stats and raw response clipboard copy buttons for each prompt.

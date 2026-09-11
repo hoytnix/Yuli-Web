@@ -22,6 +22,7 @@
 - [x] Build and test verification with `pnpm test` (42/42 tests passing across 9 suites) and `pnpm build`.
 - [x] Fix GBNF grammar parser error by implementing `getYuliGrammar()` builder explicitly joining rules with newlines and supporting hyphenated non-terminals.
 - [x] Fix deliberation tag bleeding bug: prevent partial `</thought>` chunk splitting, strip orphan tags in `CCDStreamParser`, and provide `parseModelResponse()` / `ParsedResponse` utility with tension tag routing and heuristic thought trace fallback for untagged reasoning leaks.
+- [x] Implement inference telemetry and debug log: track TTFT, latency, token count, and TPS in worker/client, add one-click clipboard copy for complete raw responses per prompt, and inspectable debug log drawer in demo.
 - [x] Tooling hygiene: Standardize strictly on `pnpm`.
 - [x] Security & deployment hygiene: Enforce strict gate against publishing to npmjs without user confirmation.
 
