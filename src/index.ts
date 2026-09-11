@@ -63,7 +63,7 @@ export {
   compileActionGrammar,
   parseActionTag
 } from './fsm/action-grammar';
-export type { ParsedAction } from './fsm/action-grammar';
+export type { ParsedAction, ActionPayload } from './fsm/action-grammar';
 
 export { TypewriterBuffer } from './dialogue/typewriter';
 export type { TypewriterOptions } from './dialogue/typewriter';

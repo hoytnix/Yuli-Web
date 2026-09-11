@@ -117,4 +117,71 @@ describe('YuliCharacterFSM Lifecycle & State Transitions', () => {
     expect(character.getState()).toBe('ERROR');
     expect(mockImport).toHaveBeenCalledWith(dummySnapshot);
   });
+
+  it('queues rapid inputs during IDLE_COOLDOWN and executes them automatically upon IDLE', async () => {
+    vi.useFakeTimers();
+
+    let callCount = 0;
+    const mockClient = {
+      exportKVCacheState: vi.fn(() => new ArrayBuffer(64)),
+      prompt: vi.fn(async (input: string) => {
+        callCount++;
+        return {
+          text: `Response to: ${input}`,
+          state: { hex: '00', quadrant: 'EGO', rawBits: 0 },
+          vector: [-1, -1, -1, -1]
+        };
+      })
+    } as unknown as YuliClient;
+
+    const character = new YuliCharacterFSM(mockClient, {
+      id: 'clicker-npc',
+      name: 'Yuli Clicker',
+      systemPrompt: 'Fast click responder.',
+      cooldownMs: 200,
+      maxQueueSize: 2
+    });
+
+    // 1st input executes immediately
+    const p1 = character.evaluateInput('Tap 1');
+    expect(['DELIBERATING', 'THINKING']).toContain(character.getState());
+
+    const res1 = await p1;
+    expect(res1.dialogue).toBe('Response to: Tap 1');
+    expect(character.getState()).toBe('IDLE_COOLDOWN');
+
+    // Tap 2 arrives during 200ms IDLE_COOLDOWN window
+    expect(character.canAcceptInput()).toBe(true);
+    const p2 = character.evaluateInput('Tap 2');
+    expect(character.getQueueLength()).toBe(1);
+
+    // Tap 3 arrives during cooldown window
+    const p3 = character.evaluateInput('Tap 3');
+    expect(character.getQueueLength()).toBe(2);
+
+    // Tap 4 arrives when bounded queue is full (size 2) -> throws immediately
+    expect(character.canAcceptInput()).toBe(false);
+    await expect(character.evaluateInput('Tap 4')).rejects.toThrow(/Cannot evaluate input while character is in state/);
+
+    // Advance timers by 200ms to complete cooldown
+    await vi.advanceTimersByTimeAsync(200);
+
+    // p2 executes and completes, enters cooldown again
+    const res2 = await p2;
+    expect(res2.dialogue).toBe('Response to: Tap 2');
+    expect(character.getQueueLength()).toBe(1);
+
+    // Advance timers by another 200ms for Tap 3 to execute
+    await vi.advanceTimersByTimeAsync(200);
+    const res3 = await p3;
+    expect(res3.dialogue).toBe('Response to: Tap 3');
+    expect(character.getQueueLength()).toBe(0);
+
+    // Advance timers to return to final IDLE
+    await vi.advanceTimersByTimeAsync(200);
+    expect(character.getState()).toBe('IDLE');
+    expect(callCount).toBe(3);
+
+    vi.useRealTimers();
+  });
 });

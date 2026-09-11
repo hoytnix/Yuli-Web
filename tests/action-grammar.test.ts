@@ -23,24 +23,43 @@ describe('Action Grammar & Dynamic GBNF Compiler', () => {
     const tag = '<action><intent>ATTACK</intent><value>45</value><payload>{"target":"goblin_boss"}</payload></action>';
     const parsed = parseActionTag(tag);
 
-    expect(parsed).not.toBeNull();
+    expect(parsed).toBeDefined();
     expect(parsed?.intent).toBe('ATTACK');
+    expect(parsed?.value).toBe(45);
     expect(parsed?.modifierValue).toBe(45);
     expect(parsed?.payloadData).toEqual({ target: 'goblin_boss' });
+  });
+
+  it('parses action tags with whitespace, decimal values, and <data> tag', () => {
+    const tag = `
+      <action type="combat">
+        <intent>   HEAL   </intent>
+        <value> 33.5 </value>
+        <data> { "spell": "greater_heal", "charges": 2 } </data>
+      </action>
+    `;
+    const parsed = parseActionTag(tag);
+
+    expect(parsed).toBeDefined();
+    expect(parsed?.intent).toBe('HEAL');
+    expect(parsed?.value).toBe(33.5);
+    expect(parsed?.modifierValue).toBe(33.5);
+    expect(parsed?.payloadData).toEqual({ spell: 'greater_heal', charges: 2 });
   });
 
   it('parses action tags with only intent', () => {
     const tag = '<action><intent>DEFEND</intent></action>';
     const parsed = parseActionTag(tag);
 
-    expect(parsed).not.toBeNull();
+    expect(parsed).toBeDefined();
     expect(parsed?.intent).toBe('DEFEND');
+    expect(parsed?.value).toBeUndefined();
     expect(parsed?.modifierValue).toBeUndefined();
     expect(parsed?.payloadData).toBeUndefined();
   });
 
-  it('returns null for text without valid action tags', () => {
-    expect(parseActionTag('Regular dialogue without action tag')).toBeNull();
-    expect(parseActionTag('<action><incomplete>')).toBeNull();
+  it('returns undefined for text without valid action tags', () => {
+    expect(parseActionTag('Regular dialogue without action tag')).toBeUndefined();
+    expect(parseActionTag('<action><incomplete>')).toBeUndefined();
   });
 });

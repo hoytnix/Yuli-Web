@@ -24,6 +24,8 @@ export interface YuliCharacterConfig<TCustomIntents extends string = string> {
   allowedIntents?: TCustomIntents[];
   telemetryProvider?: GameTelemetryProvider;
   autoRollbackOnError?: boolean;
+  maxQueueSize?: number;
+  cooldownMs?: number;
 }
 
 export interface YuliGamePayload<TCustomIntents extends string = string> {
@@ -45,10 +47,17 @@ export class YuliCharacterFSM<TCustomIntents extends string = string> {
   private currentState: FSMState = 'IDLE';
   private listeners: Map<string, Function[]> = new Map();
   private cooldownTimer: any = null;
+  private maxQueueSize: number;
+  private inputQueue: Array<{
+    playerInput: string;
+    resolve: (value: YuliGamePayload<TCustomIntents>) => void;
+    reject: (reason: any) => void;
+  }> = [];
 
   constructor(client: YuliClient, config: YuliCharacterConfig<TCustomIntents>) {
     this.client = client;
     this.config = config;
+    this.maxQueueSize = config.maxQueueSize ?? 2;
   }
 
   public getState(): FSMState {
@@ -93,6 +102,11 @@ export class YuliCharacterFSM<TCustomIntents extends string = string> {
 
   public async evaluateInput(playerInput: string): Promise<YuliGamePayload<TCustomIntents>> {
     if (this.currentState !== 'IDLE') {
+      if (this.maxQueueSize > 0 && this.inputQueue.length < this.maxQueueSize) {
+        return new Promise<YuliGamePayload<TCustomIntents>>((resolve, reject) => {
+          this.inputQueue.push({ playerInput, resolve, reject });
+        });
+      }
       throw new Error(`Cannot evaluate input while character is in state '${this.currentState}'.`);
     }
 
@@ -198,11 +212,13 @@ export class YuliCharacterFSM<TCustomIntents extends string = string> {
       this.emit('payload', payload);
       this.emit('complete', payload);
 
+      const cooldown = this.config.cooldownMs ?? 200;
       this.cooldownTimer = setTimeout(() => {
         if (this.currentState === 'IDLE_COOLDOWN') {
           this.transition('IDLE');
+          this.processQueue();
         }
-      }, 200);
+      }, cooldown);
 
       return payload;
     } catch (err: any) {
@@ -229,5 +245,35 @@ export class YuliCharacterFSM<TCustomIntents extends string = string> {
       this.cooldownTimer = null;
     }
     this.transition('IDLE');
+    this.processQueue();
+  }
+
+  private processQueue(): void {
+    if (this.currentState !== 'IDLE' || this.inputQueue.length === 0) {
+      return;
+    }
+    const nextItem = this.inputQueue.shift();
+    if (nextItem) {
+      this.evaluateInput(nextItem.playerInput)
+        .then(nextItem.resolve)
+        .catch(nextItem.reject);
+    }
+  }
+
+  public getQueueLength(): number {
+    return this.inputQueue.length;
+  }
+
+  public canAcceptInput(): boolean {
+    return this.currentState === 'IDLE' || this.inputQueue.length < this.maxQueueSize;
+  }
+
+  public clearQueue(): void {
+    while (this.inputQueue.length > 0) {
+      const item = this.inputQueue.shift();
+      if (item) {
+        item.reject(new Error('Input queue cleared.'));
+      }
+    }
   }
 }

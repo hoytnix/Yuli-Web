@@ -26,24 +26,28 @@ export interface CCDHandlers {
   onState: (state: StateVector) => void;
   onThought: (thought: string) => void;
   onVectorUpdate?: (vector: Vector4D) => void;
+  onAction?: (actionText: string) => void;
 }
 
 export class CCDStreamParser {
   private buffer: string = '';
   private inThought: boolean = false;
   private inStateVector: boolean = false;
+  private inAction: boolean = false;
   private currentVector: Vector4D = [-1, -1, -1, -1]; // Default Ego <s:00>
 
   private onTokenCb: (token: string) => void;
   private onStateCb: (state: StateVector) => void;
   private onThoughtCb: (thought: string) => void;
   private onVectorUpdateCb?: (vector: Vector4D) => void;
+  private onActionCb?: (actionText: string) => void;
 
   constructor(handlers: CCDHandlers) {
     this.onTokenCb = handlers.onToken;
     this.onStateCb = handlers.onState;
     this.onThoughtCb = handlers.onThought;
     this.onVectorUpdateCb = handlers.onVectorUpdate;
+    this.onActionCb = handlers.onAction;
   }
 
   public getCurrentVector(): Vector4D {
@@ -70,7 +74,7 @@ export class CCDStreamParser {
 
   private emitToken(token: string) {
     const cleaned = token
-      .replace(/<\/?(?:thought|state_vector|dna|tension)[^>]*>/gi, '')
+      .replace(/<\/?(?:thought|state_vector|dna|tension|action|intent|value|payload|data)[^>]*>/gi, '')
       .replace(/<s:[0-9A-Fa-f]{2}>/gi, '');
     if (cleaned.length > 0) {
       this.onTokenCb(cleaned);
@@ -83,8 +87,8 @@ export class CCDStreamParser {
       changed = false;
 
       // Strip orphan closing tags or state markers at buffer head
-      if (!this.inThought && !this.inStateVector) {
-        const orphanTagMatch = this.buffer.match(/^(?:<\/(?:thought|state_vector|dna|tension)>|<(?:dna|tension)[^>]*>|<\/dna>|<s:[0-9A-Fa-f]{2}>)/i);
+      if (!this.inThought && !this.inStateVector && !this.inAction) {
+        const orphanTagMatch = this.buffer.match(/^(?:<\/(?:thought|state_vector|dna|tension|action)>|<(?:dna|tension)[^>]*>|<\/dna>|<s:[0-9A-Fa-f]{2}>)/i);
         if (orphanTagMatch) {
           this.buffer = this.buffer.slice(orphanTagMatch[0].length);
           changed = true;
@@ -93,7 +97,7 @@ export class CCDStreamParser {
       }
 
       // Handle unclosed or malformed thought blocks terminated by </thought>
-      if (!this.inThought && !this.inStateVector) {
+      if (!this.inThought && !this.inStateVector && !this.inAction) {
         const thoughtOpenIdx = this.buffer.indexOf('<thought>');
         const thoughtCloseIdx = this.buffer.indexOf('</thought>');
         const stateOpenIdx = this.buffer.indexOf('<state_vector>');
@@ -194,6 +198,35 @@ export class CCDStreamParser {
         break;
       }
 
+      // Action block start
+      if (!this.inAction && this.buffer.includes('<action>')) {
+        const idx = this.buffer.indexOf('<action>');
+        if (idx > 0) {
+          this.emitToken(this.buffer.slice(0, idx));
+        }
+        this.buffer = this.buffer.slice(idx + '<action>'.length);
+        this.inAction = true;
+        changed = true;
+        continue;
+      }
+
+      // Action block termination
+      if (this.inAction && this.buffer.includes('</action>')) {
+        const idx = this.buffer.indexOf('</action>');
+        const actionContent = '<action>' + this.buffer.slice(0, idx) + '</action>';
+        if (this.onActionCb) {
+          this.onActionCb(actionContent);
+        }
+        this.buffer = this.buffer.slice(idx + '</action>'.length);
+        this.inAction = false;
+        changed = true;
+        continue;
+      }
+
+      if (this.inAction) {
+        break;
+      }
+
       // Stream out clean text if no tag delimiters are actively buffered
       const tagOpenIndex = this.buffer.indexOf('<');
       if (tagOpenIndex === -1) {
@@ -203,7 +236,7 @@ export class CCDStreamParser {
         this.emitToken(this.buffer.slice(0, tagOpenIndex));
         this.buffer = this.buffer.slice(tagOpenIndex);
       } else {
-        const couldBeTag = /^<\/?(?:t(?:h(?:o(?:u(?:g(?:h(?:t)?)?)?)?)?)?|t(?:e(?:n(?:s(?:i(?:o(?:n)?)?)?)?)?)?|s(?:t(?:a(?:t(?:e(?:_(?:v(?:e(?:c(?:t(?:o(?:r)?)?)?)?)?)?)?)?)?)?)?|d(?:n(?:a)?)?|s(?::[0-9A-Fa-f]{0,2})?)?>?/i.test(this.buffer);
+        const couldBeTag = /^<\/?(?:a(?:c(?:t(?:i(?:o(?:n)?)?)?)?)?|t(?:h(?:o(?:u(?:g(?:h(?:t)?)?)?)?)?)?|t(?:e(?:n(?:s(?:i(?:o(?:n)?)?)?)?)?)?|s(?:t(?:a(?:t(?:e(?:_(?:v(?:e(?:c(?:t(?:o(?:r)?)?)?)?)?)?)?)?)?)?)?|d(?:n(?:a)?)?|s(?::[0-9A-Fa-f]{0,2})?)?>?/i.test(this.buffer);
         if (couldBeTag && this.buffer.length < 20) {
           break;
         }
@@ -234,6 +267,14 @@ export class CCDStreamParser {
       }
       this.buffer = '';
       this.inStateVector = false;
+    }
+    if (this.inAction) {
+      const actionContent = '<action>' + this.buffer;
+      if (this.onActionCb) {
+        this.onActionCb(actionContent);
+      }
+      this.buffer = '';
+      this.inAction = false;
     }
     if (this.buffer.length > 0) {
       this.emitToken(this.buffer);
