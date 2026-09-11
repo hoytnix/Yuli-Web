@@ -16,9 +16,10 @@
   - OPFS snapshot persistence & model caching manager (`src/storage/opfs.ts`)
   - Model load/cache detection API for games (`isModelCached`, `hasCachedModel`, `isLoaded`, `isReady` on `YuliClient`)
   - Demo setup interstitial overlay with live download progress tracking
+  - Wllama V3 pathConfig invariant resolution (`default` asset path pointing to `esm/wasm/wllama.wasm`, fallback defense in worker, and dual stream/onData token handling)
 
 ## Active Integrations & Exports
 - Package root exports: `dist/index` and `dist/worker` with dual ESM, CJS, and `.d.ts` declaration maps.
 - Official Hugging Face repo: `https://huggingface.co/economyofdreams/Yuli-Qwen2.5-0.5B-Reddit-v0.1.0` (GGUF `Yuli-Qwen2.5-0.5B-Reddit-v0.1.0-Q4_K_M.gguf`).
-- Test suite: 29/29 tests passing across 8 suites via `pnpm test`.
+- Test suite: 30/30 tests passing across 8 suites via `pnpm test`.
 - Demo app configured with Vite in `demo/`.

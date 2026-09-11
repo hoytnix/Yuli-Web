@@ -20,10 +20,18 @@ export interface ChatMessage {
   vector?: Vector4D;
 }
 
+export interface WasmPathsConfig {
+  default: string;
+  [key: string]: string;
+}
+
+export const DEFAULT_WASM_PATH = 'https://cdn.jsdelivr.net/npm/@wllama/wllama@3.6.1/esm/wasm/wllama.wasm';
+
 export interface YuliOptions {
   modelUrl?: string;
   modelFileName?: string;
   workerUrl?: string;
+  wasmPaths?: WasmPathsConfig;
   systemPrompt?: string;
   maxHistoryTurns?: number;
   enableZeroCopy?: boolean;
@@ -173,14 +181,21 @@ export class YuliClient {
 
       const targetFileName = this.options.modelFileName || (this.options.modelUrl ? extractModelFileName(this.options.modelUrl) : DEFAULT_MODEL_FILENAME);
 
+      const defaultWasmPaths: WasmPathsConfig = {
+        default: DEFAULT_WASM_PATH,
+        'single-thread/wllama.wasm': DEFAULT_WASM_PATH,
+        'multi-thread/wllama.wasm': DEFAULT_WASM_PATH,
+        'wllama.wasm': DEFAULT_WASM_PATH
+      };
+
+      const wasmPaths = this.options.wasmPaths || defaultWasmPaths;
+
       this.worker.postMessage({
         type: 'INIT',
         modelUrl: this.options.modelUrl,
         modelFileName: targetFileName,
         ringBuffer: this.ringBuffer,
-        wasmPaths: {
-          'wllama.wasm': 'https://cdn.jsdelivr.net/npm/@wllama/wllama/src/wllama.wasm'
-        }
+        wasmPaths
       });
     });
   }

@@ -3,7 +3,8 @@ import {
   OPFSStorageManager,
   extractModelFileName,
   DEFAULT_MODEL_FILENAME,
-  YuliClient
+  YuliClient,
+  DEFAULT_WASM_PATH
 } from '../src/index';
 
 describe('OPFS Storage & Model Caching Verification', () => {
@@ -45,5 +46,18 @@ describe('OPFS Storage & Model Caching Verification', () => {
 
     const cachedStatic = await YuliClient.isModelCached();
     expect(cachedStatic).toBe(false);
+  });
+
+  it('provides valid DEFAULT_WASM_PATH targeting Wllama V3 pathConfig invariant', () => {
+    expect(DEFAULT_WASM_PATH).toBeDefined();
+    expect(DEFAULT_WASM_PATH).toContain('esm/wasm/wllama.wasm');
+    expect(DEFAULT_WASM_PATH.startsWith('https://')).toBe(true);
+
+    const client = new YuliClient({
+      wasmPaths: {
+        default: '/custom/wllama.wasm'
+      }
+    });
+    expect(client).toBeDefined();
   });
 });

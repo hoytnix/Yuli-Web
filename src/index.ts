@@ -6,8 +6,8 @@
  * For commercial operations >= $30,000 USD, a commercial license ($500 flat) is required.
  */
 
-export { YuliClient } from './client';
-export type { ChatMessage, YuliOptions, PromptHandlers, PromptOptions } from './client';
+export { YuliClient, DEFAULT_WASM_PATH } from './client';
+export type { ChatMessage, YuliOptions, PromptHandlers, PromptOptions, WasmPathsConfig } from './client';
 
 export { CCDStreamParser, parseCoordinate } from './parser/ccd';
 export type { StateVector, Quadrant, CCDHandlers } from './parser/ccd';

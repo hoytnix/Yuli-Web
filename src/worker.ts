@@ -33,7 +33,16 @@ self.onmessage = async (e: MessageEvent) => {
         });
       }
 
-      wllamaInstance = new Wllama(data.wasmPaths);
+      const defaultWasm = 'https://cdn.jsdelivr.net/npm/@wllama/wllama@3.6.1/esm/wasm/wllama.wasm';
+      const wasmPaths: any = data.wasmPaths || { default: defaultWasm };
+      if (typeof wasmPaths === 'object' && wasmPaths !== null && !wasmPaths.default) {
+        wasmPaths.default = wasmPaths['wllama.wasm'] ||
+          wasmPaths['single-thread/wllama.wasm'] ||
+          wasmPaths['multi-thread/wllama.wasm'] ||
+          defaultWasm;
+      }
+
+      wllamaInstance = new Wllama(wasmPaths);
 
       const loadConfig = {
         n_ctx: 2048,
@@ -102,10 +111,20 @@ self.onmessage = async (e: MessageEvent) => {
         : (data.useGrammar !== false ? YULI_STRICT_GBNF : undefined);
 
       const completionConfig: any = {
+        prompt: data.prompt,
         nPredict: data.maxTokens || 256,
+        max_tokens: data.maxTokens || 256,
         temp: data.temperature ?? 0.7,
+        temperature: data.temperature ?? 0.7,
         stop: ['<|im_end|>', '<|endoftext|>'],
         cache_prompt: true,
+        stream: true,
+        onData: (chunk: any) => {
+          const piece = chunk?.choices?.[0]?.text ?? chunk?.choices?.[0]?.delta?.content;
+          if (piece) {
+            parser.feed(piece);
+          }
+        },
         onNewToken: (_token: number, _piece: Uint8Array, currentText: string) => {
           parser.feed(currentText);
         }
@@ -116,7 +135,7 @@ self.onmessage = async (e: MessageEvent) => {
       }
 
       if (wllamaInstance.createCompletion.length === 1) {
-        await wllamaInstance.createCompletion({ prompt: data.prompt, ...completionConfig });
+        await wllamaInstance.createCompletion(completionConfig);
       } else {
         await wllamaInstance.createCompletion(data.prompt, completionConfig);
       }
