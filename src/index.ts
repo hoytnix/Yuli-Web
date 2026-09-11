@@ -66,8 +66,8 @@ export type { ParsedAction } from './fsm/action-grammar';
 export { TypewriterBuffer } from './dialogue/typewriter';
 export type { TypewriterOptions } from './dialogue/typewriter';
 
-export { DialoguePipeline } from './dialogue/pipeline';
-export type { DialoguePipelineOptions } from './dialogue/pipeline';
+export { DialoguePipeline, parseModelResponse } from './dialogue/pipeline';
+export type { DialoguePipelineOptions, ParsedModelResponse } from './dialogue/pipeline';
 
 export const YULI_LICENSE = {
   type: 'BSL 1.1',

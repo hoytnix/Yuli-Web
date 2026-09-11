@@ -67,9 +67,14 @@ export class DialoguePipeline<TCustomIntents extends string = string> {
         const sanitized = this.options.stripMarkdown
           ? token.replace(/[*_#`~]/g, '')
           : token;
+        const cleanToken = sanitized
+          .replace(/<\/?(?:thought|state_vector|dna)>/g, '')
+          .replace(/<s:[0-9A-Fa-f]{2}>/g, '');
 
-        this.fullDialogue += sanitized;
-        this.typewriter.feed(sanitized);
+        if (cleanToken.length > 0) {
+          this.fullDialogue += cleanToken;
+          this.typewriter.feed(cleanToken);
+        }
       },
       onState: (state: StateVector) => {
         this.latestState = state;
@@ -78,18 +83,21 @@ export class DialoguePipeline<TCustomIntents extends string = string> {
         }
       },
       onThought: (thought: string) => {
-        this.fullThought += thought;
-        if (thought.includes('<action>')) {
-          const action = parseActionTag<TCustomIntents>(thought);
-          if (action) {
-            this.parsedAction = action;
-            if (this.options.onAction) {
-              this.options.onAction(action);
+        const cleanThought = thought.replace(/<\/?thought>/g, '');
+        if (cleanThought.length > 0) {
+          this.fullThought += cleanThought;
+          if (cleanThought.includes('<action>')) {
+            const action = parseActionTag<TCustomIntents>(cleanThought);
+            if (action) {
+              this.parsedAction = action;
+              if (this.options.onAction) {
+                this.options.onAction(action);
+              }
             }
           }
-        }
-        if (this.options.onThought) {
-          this.options.onThought(thought);
+          if (this.options.onThought) {
+            this.options.onThought(cleanThought);
+          }
         }
       },
       onVectorUpdate: (vector: Vector4D) => {
@@ -122,4 +130,41 @@ export class DialoguePipeline<TCustomIntents extends string = string> {
     this.parsedAction = null;
     this.typewriter.reset();
   }
+}
+
+export interface ParsedModelResponse {
+  thought: string;
+  state: string;
+  dialogue: string;
+}
+
+/**
+ * Extracts thought and state vector from raw model output and completely strips
+ * all cognitive deliberation tags from the dialogue body to prevent UI tag bleeding.
+ */
+export function parseModelResponse(rawOutput: string): ParsedModelResponse {
+  // 1. Extract thought block safely
+  const thoughtMatch = rawOutput.match(/<thought>([\s\S]*?)<\/thought>/);
+  const thought = thoughtMatch ? thoughtMatch[1].trim() : '';
+
+  // 2. Extract state vector or terminal DNA state
+  const stateMatch = rawOutput.match(/<state_vector>([\s\S]*?)<\/state_vector>/) || 
+                     rawOutput.match(/<dna>([\s\S]*?)<\/dna>/);
+  const state = stateMatch ? stateMatch[1].trim() : '<s:00>';
+
+  // 3. Strip ALL cognitive tags from the dialogue body completely
+  let dialogue = rawOutput
+    .replace(/<thought>[\s\S]*?<\/thought>/g, '')
+    .replace(/<state_vector>[\s\S]*?<\/state_vector>/g, '')
+    .replace(/<\/?thought>/g, '')
+    .replace(/<\/?state_vector>/g, '')
+    .replace(/<\/?dna>/g, '')
+    .replace(/<s:[0-9A-Fa-f]{2}>/g, '')
+    .trim();
+
+  return {
+    thought,
+    state,
+    dialogue // Clean user-facing text
+  };
 }

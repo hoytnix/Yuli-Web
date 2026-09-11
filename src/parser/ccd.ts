@@ -68,16 +68,35 @@ export class CCDStreamParser {
     }
   }
 
+  private emitToken(token: string) {
+    const cleaned = token
+      .replace(/<\/?(?:thought|state_vector|dna)>/g, '')
+      .replace(/<s:[0-9A-Fa-f]{2}>/g, '');
+    if (cleaned.length > 0) {
+      this.onTokenCb(cleaned);
+    }
+  }
+
   private processBuffer() {
     let changed = true;
     while (changed) {
       changed = false;
 
+      // Strip orphan closing tags or state markers at buffer head
+      if (!this.inThought && !this.inStateVector) {
+        const orphanTagMatch = this.buffer.match(/^(?:<\/(?:thought|state_vector|dna)>|<dna>|<\/dna>|<s:[0-9A-Fa-f]{2}>)/);
+        if (orphanTagMatch) {
+          this.buffer = this.buffer.slice(orphanTagMatch[0].length);
+          changed = true;
+          continue;
+        }
+      }
+
       // Thought block start
       if (!this.inThought && this.buffer.includes('<thought>')) {
         const idx = this.buffer.indexOf('<thought>');
         if (idx > 0) {
-          this.onTokenCb(this.buffer.slice(0, idx));
+          this.emitToken(this.buffer.slice(0, idx));
         }
         this.buffer = this.buffer.slice(idx + '<thought>'.length);
         this.inThought = true;
@@ -98,7 +117,16 @@ export class CCDStreamParser {
       }
 
       if (this.inThought) {
-        if (!this.buffer.includes('</thought>')) {
+        // Prevent partial closing tag (e.g. "</thou") from being eagerly emitted to thoughtText
+        const partialLen = getPartialClosingTagLength(this.buffer, '</thought>');
+        if (partialLen > 0) {
+          const safe = this.buffer.slice(0, -partialLen);
+          if (safe.length > 0) {
+            this.scanForDeltas(safe);
+            this.onThoughtCb(safe);
+            this.buffer = this.buffer.slice(-partialLen);
+          }
+        } else {
           this.scanForDeltas(this.buffer);
           this.onThoughtCb(this.buffer);
           this.buffer = '';
@@ -110,7 +138,7 @@ export class CCDStreamParser {
       if (!this.inStateVector && this.buffer.includes('<state_vector>')) {
         const idx = this.buffer.indexOf('<state_vector>');
         if (idx > 0) {
-          this.onTokenCb(this.buffer.slice(0, idx));
+          this.emitToken(this.buffer.slice(0, idx));
         }
         this.buffer = this.buffer.slice(idx + '<state_vector>'.length);
         this.inStateVector = true;
@@ -146,26 +174,57 @@ export class CCDStreamParser {
       // Stream out clean text if no tag delimiters are actively buffered
       const tagOpenIndex = this.buffer.indexOf('<');
       if (tagOpenIndex === -1) {
-        this.onTokenCb(this.buffer);
+        this.emitToken(this.buffer);
         this.buffer = '';
       } else if (tagOpenIndex > 0) {
-        this.onTokenCb(this.buffer.slice(0, tagOpenIndex));
+        this.emitToken(this.buffer.slice(0, tagOpenIndex));
         this.buffer = this.buffer.slice(tagOpenIndex);
       } else {
-        if (this.buffer.length > 20) {
-          this.onTokenCb(this.buffer[0]);
-          this.buffer = this.buffer.slice(1);
-          changed = true;
+        const couldBeTag = /^<\/?(?:t(?:h(?:o(?:u(?:g(?:h(?:t)?)?)?)?)?)?|s(?:t(?:a(?:t(?:e(?:_(?:v(?:e(?:c(?:t(?:o(?:r)?)?)?)?)?)?)?)?)?)?)?|d(?:n(?:a)?)?|s(?::[0-9A-Fa-f]{0,2})?)?>?/.test(this.buffer);
+        if (couldBeTag && this.buffer.length < 20) {
+          break;
         }
-        break;
+        this.emitToken(this.buffer[0]);
+        this.buffer = this.buffer.slice(1);
+        changed = true;
       }
     }
   }
 
   public flush() {
-    if (this.buffer.length > 0 && !this.inThought && !this.inStateVector) {
-      this.onTokenCb(this.buffer);
+    if (this.inThought) {
+      const cleanThought = this.buffer
+        .replace(/<\/?(?:thought|state_vector|dna)>/g, '')
+        .replace(/<s:[0-9A-Fa-f]{2}>/g, '');
+      if (cleanThought.length > 0) {
+        this.scanForDeltas(cleanThought);
+        this.onThoughtCb(cleanThought);
+      }
+      this.buffer = '';
+      this.inThought = false;
+    }
+    if (this.inStateVector) {
+      const match = this.buffer.match(/<s:([0-9A-Fa-f]{2})>/);
+      if (match && match[1]) {
+        const state = parseCoordinate(match[1]);
+        this.onStateCb(state);
+      }
+      this.buffer = '';
+      this.inStateVector = false;
+    }
+    if (this.buffer.length > 0) {
+      this.emitToken(this.buffer);
       this.buffer = '';
     }
   }
+}
+
+function getPartialClosingTagLength(text: string, tag: string): number {
+  const maxLen = Math.min(text.length, tag.length - 1);
+  for (let len = maxLen; len > 0; len--) {
+    if (text.endsWith(tag.slice(0, len))) {
+      return len;
+    }
+  }
+  return 0;
 }

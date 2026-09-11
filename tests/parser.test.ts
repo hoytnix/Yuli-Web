@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { CCDStreamParser, parseCoordinate } from '../src/parser/ccd';
 import { Vector4D } from '../src/vector/hypercube';
+import { parseModelResponse } from '../src/dialogue/pipeline';
 
 describe('Cognitive Coordinate Mapping', () => {
   it('correctly maps hypercube states to 4-Sides-of-the-Mind quadrants', () => {
@@ -68,5 +69,72 @@ describe('CCDStreamParser', () => {
     parser.feed('<state_vector><s:06></state_vector>');
     expect(vectorUpdates.length).toBe(2);
     expect(vectorUpdates[1]).toEqual([-1, 1, 1, -1]);
+  });
+
+  it('safely handles closing tag </thought> split across chunk boundaries', () => {
+    const tokensReceived: string[] = [];
+    let capturedThought: string = '';
+    let capturedState: any = null;
+
+    const parser = new CCDStreamParser({
+      onToken: (t) => tokensReceived.push(t),
+      onState: (s) => { capturedState = s; },
+      onThought: (th) => { capturedThought += th; }
+    });
+
+    // Chunk splits </thought> across boundary: "</thou" and "ght>"
+    parser.feed('<thought>Deep cognitive reasoning </thou');
+    parser.feed('ght><state_vector><s:03></state_vector>Fresh ramen noodles.');
+    parser.flush();
+
+    expect(capturedThought.trim()).toBe('Deep cognitive reasoning');
+    expect(capturedState?.hex).toBe('03');
+    expect(tokensReceived.join('')).toBe('Fresh ramen noodles.');
+  });
+
+  it('strips orphan closing tags and prevents tag bleeding into dialogue', () => {
+    const tokensReceived: string[] = [];
+    let capturedState: any = null;
+
+    const parser = new CCDStreamParser({
+      onToken: (t) => tokensReceived.push(t),
+      onState: (s) => { capturedState = s; },
+      onThought: () => {}
+    });
+
+    // Model starts directly with orphan closing tags
+    parser.feed('</thought><state_vector><s:01></state_vector>Clean dialogue without raw XML.');
+    parser.flush();
+
+    expect(capturedState?.hex).toBe('01');
+    const dialogue = tokensReceived.join('');
+    expect(dialogue).not.toContain('</thought>');
+    expect(dialogue).not.toContain('<state_vector>');
+    expect(dialogue).not.toContain('</state_vector>');
+    expect(dialogue).toBe('Clean dialogue without raw XML.');
+  });
+});
+
+describe('parseModelResponse Helper', () => {
+  it('extracts thought, state vector, and completely strips all tags from dialogue', () => {
+    const rawOutput = '<thought>Let me check the budget.</thought><state_vector><s:08></state_vector>We should invest in chashu pork.';
+    const result = parseModelResponse(rawOutput);
+
+    expect(result.thought).toBe('Let me check the budget.');
+    expect(result.state).toBe('<s:08>');
+    expect(result.dialogue).toBe('We should invest in chashu pork.');
+  });
+
+  it('handles slightly shifted or unclosed tags without bleeding tags into dialogue', () => {
+    const rawOutput = '</thought></state_vector><thought>Thinking hard</thought><state_vector><s:02></state_vector>Stick to the broth! <s:02>';
+    const result = parseModelResponse(rawOutput);
+
+    expect(result.thought).toBe('Thinking hard');
+    expect(result.state).toBe('<s:02>');
+    expect(result.dialogue).not.toContain('</thought>');
+    expect(result.dialogue).not.toContain('<state_vector>');
+    expect(result.dialogue).not.toContain('</state_vector>');
+    expect(result.dialogue).not.toContain('<s:02>');
+    expect(result.dialogue).toBe('Stick to the broth!');
   });
 });
