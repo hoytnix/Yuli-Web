@@ -140,11 +140,6 @@ export interface ParsedResponse {
 
 export type ParsedModelResponse = ParsedResponse;
 
-/**
- * Robustly parses model output, stripping all internal cognitive traces,
- * tension markers, state vectors, and DNA strings from the public dialogue,
- * routing them correctly into the deliberation view.
- */
 export function parseModelResponse(rawOutput: string): ParsedResponse {
   if (!rawOutput) {
     return { thought: '', state: '<s:00>', dialogue: '' };
@@ -152,51 +147,62 @@ export function parseModelResponse(rawOutput: string): ParsedResponse {
 
   let thoughtContent = '';
   let activeState = '<s:00>';
+  let dialogue = rawOutput;
 
-  // 1. Extract standard <thought>...</thought> blocks
-  const thoughtMatch = rawOutput.match(/<thought>([\s\S]*?)<\/thought>/i);
+  // 1. Extract explicit <thought> blocks
+  const thoughtMatch = dialogue.match(/<thought>([\s\S]*?)<\/thought>/i);
   if (thoughtMatch) {
     thoughtContent = thoughtMatch[1].trim();
+    dialogue = dialogue.replace(/<thought>[\s\S]*?<\/thought>/gi, '');
   }
 
-  // 2. Fallback: Catch custom metadata tags like <tension ...> or unclosed thought headers if present
-  const tensionMatch = rawOutput.match(/<(?:tension|thought|dna)[^>]*>([\s\S]*?)(?:<\/(?:tension|thought|dna)>|$)/i);
+  // Fallback: Catch custom metadata tags like <tension ...>
+  const tensionMatch = dialogue.match(/<tension[^>]*>([\s\S]*?)<\/tension>/i);
   if (!thoughtContent && tensionMatch) {
     thoughtContent = tensionMatch[1].trim();
+    dialogue = dialogue.replace(/<tension[^>]*>[\s\S]*?<\/tension>/gi, '');
   }
 
-  // 3. Extract state vector or terminal DNA state token (<s:XX>)
-  const stateMatch = rawOutput.match(/<state_vector>\s*(<s:[0-9A-F]{2}>)\s*<\/state_vector>/i) ||
-                     rawOutput.match(/(<s:[0-9A-F]{2}>)/i);
+  // 2. Extract state vector or terminal DNA state tokens
+  const stateMatch = dialogue.match(/<state_vector>\s*(<s:[0-9A-F]{2}>)\s*<\/state_vector>/i) ||
+                     dialogue.match(/(<s:[0-9A-F]{2}>)/);
   if (stateMatch) {
     activeState = stateMatch[1].trim();
+    dialogue = dialogue.replace(stateMatch[0], '');
   }
 
-  // 4. Clean dialogue: Strip all internal tags, XML blocks, and leaked metadata lines
-  let cleanDialogue = rawOutput
-    // Remove standard XML thought/dna/state/tension blocks completely
-    .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
-    .replace(/<dna>[\s\S]*?<\/dna>/gi, '')
-    .replace(/<state_vector>[\s\S]*?<\/state_vector>/gi, '')
-    .replace(/<tension[^>]*>[\s\S]*?<\/tension>/gi, '')
-    // Remove standalone tags or stray headers like <tension 0.8> or </thought>
+  // 3. Strip all stray XML/tag remnants
+  dialogue = dialogue
     .replace(/<\/?(?:thought|dna|state_vector|tension)[^>]*>/gi, '')
-    // Remove raw hex state tokens from the dialogue body
     .replace(/<s:[0-9A-F]{2}>/gi, '')
-    // Clean up excessive whitespace or leading artifacts left behind
-    .replace(/^\s*[\r\n]/gm, '')
     .trim();
+
+  // 4. Heuristic Fallback for Untagged Thought Leaks:
+  // If the model omitted <thought> tags but outputted an internal evaluation line 
+  // at the top (e.g., "Evaluating the pairing..."), pull it out into the thought trace.
+  if (!thoughtContent && dialogue.includes('\n')) {
+    const parts = dialogue.split(/\n+/);
+    if (parts.length > 1) {
+      const firstLine = parts[0].trim();
+      // Detect common cognitive evaluation triggers
+      if (/^(evaluating|assessing|shifting|analyzing|tension|observing|calibrating|recognizing)/i.test(firstLine)) {
+        thoughtContent = firstLine;
+        parts.shift();
+        dialogue = parts.join('\n').trim();
+      }
+    }
+  }
 
   // If the entire output was wrapped in thoughts and nothing was left for dialogue, 
   // ensure we don't display an empty bubble.
-  if (!cleanDialogue && thoughtContent) {
-    cleanDialogue = thoughtContent;
+  if (!dialogue && thoughtContent) {
+    dialogue = thoughtContent;
     thoughtContent = 'Parsed from direct output stream.';
   }
 
   return {
-    thought: thoughtContent || 'Context calibrated and evaluated.',
+    thought: thoughtContent || 'Context calibrated.',
     state: activeState,
-    dialogue: cleanDialogue
+    dialogue: dialogue || rawOutput
   };
 }

@@ -160,4 +160,13 @@ describe('parseModelResponse Helper', () => {
     expect(result.dialogue).toBe('Only thought generated');
     expect(result.thought).toBe('Parsed from direct output stream.');
   });
+
+  it('heuristically extracts untagged thought leaks at the top of output', () => {
+    const rawOutput = 'Evaluating the pairing of spicy miso and rich pork broth...\nYou should definitely order an extra egg.';
+    const result = parseModelResponse(rawOutput);
+
+    expect(result.thought).toBe('Evaluating the pairing of spicy miso and rich pork broth...');
+    expect(result.state).toBe('<s:00>');
+    expect(result.dialogue).toBe('You should definitely order an extra egg.');
+  });
 });

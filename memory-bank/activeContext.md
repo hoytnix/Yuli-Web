@@ -21,7 +21,7 @@
 ## Active Integrations & Exports
 - Package root exports: `dist/index` and `dist/worker` with dual ESM, CJS, and `.d.ts` declaration maps.
 - Official Hugging Face repo: `https://huggingface.co/economyofdreams/Yuli-Qwen2.5-0.5B-Reddit-v0.1.0` (GGUF `Yuli-Qwen2.5-0.5B-Reddit-v0.1.0-Q4_K_M.gguf`).
-- Test suite: 41/41 tests passing across 9 suites via `pnpm test`.
-- Deliberation Tag Firewall invariant: `CCDStreamParser` buffers partial closing tags (`</thought>`) across token chunk boundaries and strips orphan closing tags at stream head. Added `parseModelResponse` (`ParsedResponse`) in `src/dialogue/pipeline.ts` to cleanly extract thought, tension metadata, and state, stripping all internal cognitive traces from dialogue.
+- Test suite: 42/42 tests passing across 9 suites via `pnpm test`.
+- Deliberation Tag Firewall invariant: `CCDStreamParser` buffers partial closing tags (`</thought>`) across token chunk boundaries and strips orphan closing tags at stream head. Added `parseModelResponse` (`ParsedResponse`) in `src/dialogue/pipeline.ts` with heuristic thought trace fallback for untagged model reasoning leaks alongside tension tag routing and state extraction.
 - GBNF grammar parser invariant: All rules in `src/grammar/gbnf.ts` and `src/fsm/action-grammar.ts` are explicitly joined by newlines (`.join('\n')`) via `getYuliGrammar()` and use kebab-case hyphenated non-terminals (`thought-block`, `state-block`, `hex-pair`, etc.) because llama.cpp's `parse_name` rejects underscores (`_`) in rule identifiers. Legacy snake_case is accessible via `getYuliGrammar(false)`.
 - Demo app configured with Vite in `demo/`.
