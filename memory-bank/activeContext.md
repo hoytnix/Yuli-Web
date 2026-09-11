@@ -21,6 +21,6 @@
 ## Active Integrations & Exports
 - Package root exports: `dist/index` and `dist/worker` with dual ESM, CJS, and `.d.ts` declaration maps.
 - Official Hugging Face repo: `https://huggingface.co/economyofdreams/Yuli-Qwen2.5-0.5B-Reddit-v0.1.0` (GGUF `Yuli-Qwen2.5-0.5B-Reddit-v0.1.0-Q4_K_M.gguf`).
-- Test suite: 33/33 tests passing across 9 suites via `pnpm test`.
-- GBNF grammar parser invariant: All rules in `src/grammar/gbnf.ts` and `src/fsm/action-grammar.ts` are explicitly joined by newlines (`.join('\n')`) and use kebab-case hyphenated non-terminals (`thought-block`, `state-block`, `hex-pair`, etc.) because llama.cpp's `parse_name` rejects underscores (`_`) in rule identifiers.
+- Test suite: 34/34 tests passing across 9 suites via `pnpm test`.
+- GBNF grammar parser invariant: All rules in `src/grammar/gbnf.ts` and `src/fsm/action-grammar.ts` are explicitly joined by newlines (`.join('\n')`) via `getYuliGrammar()` and use kebab-case hyphenated non-terminals (`thought-block`, `state-block`, `hex-pair`, etc.) because llama.cpp's `parse_name` rejects underscores (`_`) in rule identifiers. Legacy snake_case is accessible via `getYuliGrammar(false)`.
 - Demo app configured with Vite in `demo/`.

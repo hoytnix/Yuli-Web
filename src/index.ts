@@ -35,6 +35,7 @@ export {
 } from './ringbuffer/ring-buffer';
 
 export {
+  getYuliGrammar,
   YULI_STRICT_GBNF,
   YULI_STATE_ONLY_GBNF,
   YULI_JSON_ACTION_GBNF
