@@ -85,10 +85,10 @@ flowchart TD
 
 ### 4. $F_2^4$ 4-Sides-of-the-Mind Hypercube Geometry
 * Cognitive state anchors map strictly across 16 coordinates (`<s:00>` through `<s:0F>`) with Hamming distance 1 adjacency across 4 psychological quadrants:
-  * **Ego** (`0EE` $\to$ `0x00`–`0x03`): Curiosity, excitement, open culinary exploration.
-  * **Shadow** (`1E6` $\to$ `0x04`–`0x07`): Critical correction, skepticism, debt realism.
-  * **Subconscious** (`2E7` $\to$ `0x08`–`0x0B`): Pragmatic execution, recipe ROI, structured systems.
-  * **Superego** (`3E1` $\to$ `0x0C`–`0x0F`): Hard boundaries, austerity rules, discipline.
+  * **Ego** (`0EE` → `0x00`–`0x03`): Curiosity, excitement, open culinary exploration.
+  * **Shadow** (`1E6` → `0x04`–`0x07`): Critical correction, skepticism, debt realism.
+  * **Subconscious** (`2E7` → `0x08`–`0x0B`): Pragmatic execution, recipe ROI, structured systems.
+  * **Superego** (`3E1` → `0x0C`–`0x0F`): Hard boundaries, austerity rules, discipline.
 * Continuous coordinates $\mathbf{v} \in [-1, 1]^4$ enable real-time Exponential Moving Average (EMA) vector interpolation (`blendVectors`) and emotional trajectory tracking.
 
 ### 5. Hardware Fallback Cascade
@@ -98,7 +98,7 @@ flowchart TD
   3. **Single-Threaded WASM SIMD** (graceful degraded mode for non-isolated environments)
 
 ### 6. Zero-Copy Token Ring Buffer (SharedArrayBuffer Atomics)
-* When cross-origin isolation headers (`COOP`/`COEP`) are present, generation tokens flow over a lock-free circular ring buffer (`TokenRingBufferWriter` $\to$ `TokenRingBufferReader`).
+* When cross-origin isolation headers (`COOP`/`COEP`) are present, generation tokens flow over a lock-free circular ring buffer (`TokenRingBufferWriter` → `TokenRingBufferReader`).
 * Eliminates JSON serialization and `postMessage` event loop tick latency during high-speed 100+ TPS bursts. Main thread consumes via non-blocking atomic polling. Gracefully falls back to structured messaging when unsupported.
 
 ### 7. Grammar-Constrained Logit Sampling (Native GBNF)

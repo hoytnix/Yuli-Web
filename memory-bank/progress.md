@@ -23,7 +23,7 @@
 - [x] Fix GBNF grammar parser error by implementing `getYuliGrammar()` builder explicitly joining rules with newlines and supporting hyphenated non-terminals.
 - [x] Version `0.5.1`:
   - [x] Update BSL-1.1 license terms: Apache 2.0 conversion on September 1st, 2030, $1,500/yr per Title commercial license for entities grossing >=$30,000 USD, enterprise SLA available upon request (synchronized across `LICENSE`, `src/index.ts`, `techContext.md`, `GEMINI.md`).
-  - [x] Overhaul `README.md` to comprehensive, high-aesthetic specification (shields.io badges, Mermaid architecture flowchart, 9 architectural invariants, features, tech stack matrix, annotated repository structure, quick start snippets, test instructions, and pair-programming laws).
+  - [x] Overhaul `README.md` to comprehensive, high-aesthetic specification (shields.io badges, Mermaid architecture flowchart, 9 architectural invariants, features, tech stack matrix, annotated repository structure, quick start snippets, test instructions, pair-programming laws, and clean Unicode `→` typography).
   - [x] Test and build verification: 46/46 tests passing across 9 suites via `pnpm test` and clean dual ESM/CJS build via `pnpm build`.
 
 ## Known Constraints & Edge Cases
