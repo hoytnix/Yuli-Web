@@ -113,6 +113,30 @@ describe('CCDStreamParser', () => {
     expect(dialogue).not.toContain('</state_vector>');
     expect(dialogue).toBe('Clean dialogue without raw XML.');
   });
+
+  it('correctly streams real-world raw response without bleeding thoughts into onToken', () => {
+    const tokensReceived: string[] = [];
+    let capturedState: any = null;
+    let capturedThought: string = '';
+
+    const parser = new CCDStreamParser({
+      onToken: (t) => tokensReceived.push(t),
+      onState: (s) => { capturedState = s; },
+      onThought: (th) => { capturedThought += th; }
+    });
+
+    const stream = '<thought>\n</thought><state_vector><s:00></state_vector><toss></thought>\nUsing playful language to spark the creative energy.\n</thought>\nHey! Gas cooking is totally awesome because you get that real, satisfying heat without burning up your kitchen and losing your sanity.';
+    parser.feed(stream);
+    parser.flush();
+
+    expect(capturedState?.hex).toBe('00');
+    expect(capturedThought).toContain('Using playful language to spark the creative energy.');
+    const dialogue = tokensReceived.join('');
+    expect(dialogue).not.toContain('Using playful language');
+    expect(dialogue).not.toContain('<toss>');
+    expect(dialogue).not.toContain('</thought>');
+    expect(dialogue.trim()).toBe('Hey! Gas cooking is totally awesome because you get that real, satisfying heat without burning up your kitchen and losing your sanity.');
+  });
 });
 
 describe('parseModelResponse Helper', () => {
@@ -183,5 +207,17 @@ describe('parseModelResponse Helper', () => {
 
     expect(result.thought).toBe('Using the recipe ROI formula to maximize broth margins.');
     expect(result.dialogue).toBe('We should invest in chashu pork.');
+  });
+
+  it('correctly handles real-world raw response with empty thought, <toss>, and unclosed deliberation', () => {
+    const rawOutput = '<thought>\n</thought><state_vector><s:00></state_vector><toss></thought>\nUsing playful language to spark the creative energy.\n</thought>\nHey! Gas cooking is totally awesome because you get that real, satisfying heat without burning up your kitchen and losing your sanity.';
+    const result = parseModelResponse(rawOutput);
+
+    expect(result.state).toBe('<s:00>');
+    expect(result.thought).toBe('Using playful language to spark the creative energy.');
+    expect(result.dialogue).toBe('Hey! Gas cooking is totally awesome because you get that real, satisfying heat without burning up your kitchen and losing your sanity.');
+    expect(result.dialogue).not.toContain('Using playful language');
+    expect(result.dialogue).not.toContain('<toss>');
+    expect(result.dialogue).not.toContain('</thought>');
   });
 });

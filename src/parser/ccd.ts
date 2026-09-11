@@ -92,6 +92,29 @@ export class CCDStreamParser {
         }
       }
 
+      // Handle unclosed or malformed thought blocks terminated by </thought>
+      if (!this.inThought && !this.inStateVector) {
+        const thoughtOpenIdx = this.buffer.indexOf('<thought>');
+        const thoughtCloseIdx = this.buffer.indexOf('</thought>');
+        const stateOpenIdx = this.buffer.indexOf('<state_vector>');
+        const hasEarlierStateVector = stateOpenIdx !== -1 && stateOpenIdx < thoughtCloseIdx;
+
+        if (thoughtCloseIdx !== -1 && (thoughtOpenIdx === -1 || thoughtCloseIdx < thoughtOpenIdx) && !hasEarlierStateVector) {
+          const thoughtContent = this.buffer.slice(0, thoughtCloseIdx);
+          const cleanThought = thoughtContent
+            .replace(/<[^>]+>/g, '')
+            .replace(/<s:[0-9A-Fa-f]{2}>/gi, '')
+            .trim();
+          if (cleanThought.length > 0) {
+            this.scanForDeltas(cleanThought);
+            this.onThoughtCb(cleanThought);
+          }
+          this.buffer = this.buffer.slice(thoughtCloseIdx + '</thought>'.length);
+          changed = true;
+          continue;
+        }
+      }
+
       // Thought block start
       if (!this.inThought && this.buffer.includes('<thought>')) {
         const idx = this.buffer.indexOf('<thought>');

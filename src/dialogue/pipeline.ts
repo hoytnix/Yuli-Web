@@ -146,48 +146,45 @@ export function parseModelResponse(rawOutput: string): ParsedResponse {
   }
 
   let activeState = '<s:00>';
-  let thought = '';
-  let dialogue = rawOutput;
-
-  // 1. Extract active state vector (<s:XX>)
   const stateMatch = rawOutput.match(/<state_vector>\s*(<s:[0-9A-F]{2}>)\s*<\/state_vector>/i) ||
-                     rawOutput.match(/(<s:[0-9A-F]{2}>)/);
+                     rawOutput.match(/(<s:[0-9A-F]{2}>)/i);
   if (stateMatch) {
     activeState = stateMatch[1].trim();
   }
 
-  // 2. Check for valid standard <thought>...</thought> blocks
-  const standardThoughtMatch = rawOutput.match(/<thought>([\s\S]*?)<\/thought>/i);
-  if (standardThoughtMatch && standardThoughtMatch[1].trim().length > 0) {
-    thought = standardThoughtMatch[1].trim();
-    const parts = rawOutput.split(/<\/thought>/i);
-    if (parts.length > 1) {
-      dialogue = parts.slice(1).join('</thought>');
-    }
+  let thought = '';
+  let dialogue = rawOutput;
+
+  // Split strictly on the LAST </thought> delimiter if present
+  const lastThoughtIdx = rawOutput.toLowerCase().lastIndexOf('</thought>');
+  if (lastThoughtIdx !== -1) {
+    const preThought = rawOutput.slice(0, lastThoughtIdx);
+    dialogue = rawOutput.slice(lastThoughtIdx + '</thought>'.length);
+
+    // Extract thought text by stripping leading state vector blocks and XML tags
+    thought = preThought
+      .replace(/<state_vector>[\s\S]*?<\/state_vector>/gi, '')
+      .replace(/<thought>([\s\S]*?)<\/thought>/gi, '$1\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/<s:[0-9A-F]{2}>/gi, '')
+      .trim();
   } else {
-    // 3. Handle malformed interleaving: </state_vector> [Thought Text] </thought> [Dialogue]
-    const malformedMatch = rawOutput.match(/<\/state_vector>\s*([\s\S]*?)\s*<\/thought>\s*([\s\S]*)$/i);
-    if (malformedMatch) {
-      thought = malformedMatch[1].trim();
-      dialogue = malformedMatch[2].trim();
-    } else {
-      // 4. Heuristic Fallback: Inspect leading lines for cognitive metadata triggers
-      const lines = rawOutput.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      if (lines.length > 1 && /^(using|evaluating|assessing|shifting|analyzing|tension|observing|calibrating|recognizing|resolving)/i.test(lines[0])) {
-        thought = lines[0];
-        dialogue = lines.slice(1).join('\n');
-      }
+    // Leading-line heuristic fallback if no </thought> exists
+    const lines = rawOutput.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length > 1 && /^(using|evaluating|assessing|shifting|analyzing|tension|observing|calibrating|recognizing|resolving)/i.test(lines[0])) {
+      thought = lines[0];
+      dialogue = lines.slice(1).join('\n');
     }
   }
 
-  // 5. Purge remaining XML artifacts and raw tokens from dialogue and thought
+  // Purge remaining XML/custom tags and raw coordinates
   dialogue = dialogue
-    .replace(/<\/?(?:thought|dna|state_vector|tension)[^>]*>/gi, '')
+    .replace(/<[^>]+>/g, '')
     .replace(/<s:[0-9A-F]{2}>/gi, '')
     .trim();
 
   thought = thought
-    .replace(/<\/?(?:thought|dna|state_vector|tension)[^>]*>/gi, '')
+    .replace(/<[^>]+>/g, '')
     .replace(/<s:[0-9A-F]{2}>/gi, '')
     .trim();
 

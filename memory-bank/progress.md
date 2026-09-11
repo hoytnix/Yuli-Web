@@ -21,7 +21,7 @@
   - [x] Fix Wllama V3 pathConfig error (`"default"` asset path key required in `AssetsPathConfig` and modern `esm/wasm/wllama.wasm` CDN endpoint).
 - [x] Build and test verification with `pnpm test` (44/44 tests passing across 9 suites) and `pnpm build`.
 - [x] Fix GBNF grammar parser error by implementing `getYuliGrammar()` builder explicitly joining rules with newlines and supporting hyphenated non-terminals.
-- [x] Fix deliberation tag bleeding bug: prevent partial `</thought>` chunk splitting, strip orphan tags in `CCDStreamParser`, and update `parseModelResponse()` / `ParsedResponse` in `src/dialogue/pipeline.ts` to isolate malformed tag interleaving (`</state_vector> [Thought] </thought> [Dialogue]`) and cognitive metadata triggers into the deliberation drawer.
+- [x] Fix deliberation tag bleeding bug: prevent partial `</thought>` chunk splitting, strip orphan tags in `CCDStreamParser`, and update `parseModelResponse()` / `ParsedResponse` in `src/dialogue/pipeline.ts` with last-delimiter partitioning to completely isolate malformed tag interleaving (including empty leading `<thought>\n</thought>`, rogue tags like `<toss>`, and trailing deliberation traces before dialogue). Verified with 46/46 passing tests.
 - [x] Implement inference telemetry and debug log: track TTFT, latency, token count, and TPS in worker/client, add one-click clipboard copy for complete raw responses per prompt, and inspectable debug log drawer in demo.
 - [x] Tooling hygiene: Standardize strictly on `pnpm`.
 - [x] Security & deployment hygiene: Enforce strict gate against publishing to npmjs without user confirmation.
