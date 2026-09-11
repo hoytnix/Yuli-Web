@@ -27,38 +27,46 @@ Rather than dumping unconstrained text streams onto the screen, Yuli introduces 
 ## ⚡ The Edge Deliberation & Dialogue Pipeline
 
 ```mermaid
-flowchart TD
+graph TD
     Player([Player / Game Event]) --> HostThread["Host Game Thread (60 / 120 FPS)"]
     HostThread --> Client["YuliClient / Character FSM"]
-    
-    subgraph BackgroundWorker ["Dedicated Web Worker (src/worker.ts)"]
-        Client -->|"postMessage / SharedArrayBuffer Ring Buffer"| WorkerRPC["Worker RPC Handler"]
-        WorkerRPC --> StorageCheck{"OPFS Storage Check"}
-        StorageCheck -->|Cache Miss| StreamDownload["Chunked HTTP Stream → OPFS Storage"]
-        StorageCheck -->|"Cache Hit (&lt;250ms)"| MountOPFS["Zero-Heap OPFS Binary Mount"]
-        
-        StreamDownload --> EngineInit["Wllama Engine Init"]
+
+    subgraph BackgroundWorker ["Dedicated Web Worker: src/worker.ts"]
+        WorkerRPC["Worker RPC Handler"]
+        StorageCheck{"OPFS Storage Check"}
+        StreamDownload["Chunked HTTP Stream → OPFS Storage"]
+        MountOPFS["Zero-Heap OPFS Binary Mount"]
+        EngineInit["Wllama Engine Init"]
+        BackendSelect{"Hardware Acceleration"}
+        WebGPU["WebGPU Compute Shaders (70–110 TPS)"]
+        WasmMulti["Multi-Threaded WASM SIMD (20–35 TPS)"]
+        WasmSingle["Single-Threaded WASM SIMD"]
+        Inference["Grammar-Constrained Token Generation (GBNF)"]
+        PDA["CCDStreamParser (Inline Pushdown Automaton)"]
+
+        WorkerRPC --> StorageCheck
+        StorageCheck -->|Cache Miss| StreamDownload
+        StorageCheck -->|Cache Hit: sub-250ms| MountOPFS
+        StreamDownload --> EngineInit
         MountOPFS --> EngineInit
-        
-        EngineInit --> BackendSelect{"Hardware Acceleration"}
-        BackendSelect -->|WebGPU Supported| WebGPU["WebGPU Compute Shaders (70–110 TPS)"]
-        BackendSelect -->|Fallback| WasmMulti["Multi-Threaded WASM SIMD (20–35 TPS)"]
-        BackendSelect -->|Degraded| WasmSingle["Single-Threaded WASM SIMD"]
-        
-        WebGPU --> Inference["Grammar-Constrained Token Generation (GBNF)"]
+        EngineInit --> BackendSelect
+        BackendSelect -->|WebGPU Supported| WebGPU
+        BackendSelect -->|Fallback| WasmMulti
+        BackendSelect -->|Degraded| WasmSingle
+        WebGPU --> Inference
         WasmMulti --> Inference
         WasmSingle --> Inference
-        
-        Inference --> PDA["CCDStreamParser (Inline Pushdown Automaton)"]
+        Inference --> PDA
     end
-    
-    PDA -->|Internal Reasoning| ThoughtStream["&lt;thought&gt; Deliberation Drawer & Telemetry"]
-    PDA -->|Hypercube State| StateVector["&lt;state_vector&gt; 4D Coordinate Blending (Ego/Shadow/Sub/Superego)"]
-    PDA -->|Custom Actions| ActionParser["Dynamic Action Grammar (&lt;action&gt;attack&lt;/action&gt;)"]
+
+    Client -->|postMessage / SAB Ring Buffer| WorkerRPC
+    PDA -->|Internal Reasoning| ThoughtStream["thought Deliberation Drawer & Telemetry"]
+    PDA -->|Hypercube State| StateVector["state_vector 4D Coordinate Blending (Ego/Shadow/Sub/Superego)"]
+    PDA -->|Custom Actions| ActionParser["Dynamic Action Grammar: action tags"]
     PDA -->|Clean Dialogue| RingBuffer["Zero-Copy Lock-Free Ring Buffer / postMessage"]
-    
+
     RingBuffer --> Typewriter["TypewriterBuffer (Configurable Cadence)"]
-    Typewriter --> AudioHooks["Audio Voice Hooks: onPunctuation (., !, ?)"]
+    Typewriter --> AudioHooks["Audio Voice Hooks: onPunctuation"]
     Typewriter --> GameUI["Pristine In-Game NPC Dialogue Bubble 🚀"]
 ```
 
