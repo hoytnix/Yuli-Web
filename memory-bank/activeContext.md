@@ -1,7 +1,7 @@
 # Active Context: @yuli-ai/web
 
 ## Current Status
-- Package version: `0.3.0` (RFC-0003 implementation complete)
+- Package version: `0.4.0` (Loading Interstitial & Cache Detection API)
 - Standardized package manager: `pnpm` (configured in `GEMINI.md` and `techContext.md`)
 - Deployment policy: Strict prohibition on publishing to npmjs without explicit prior user instruction.
 - Subsystems implemented:
