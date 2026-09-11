@@ -4,7 +4,7 @@ Parameters:
 
 Licensor:                 Project Yuli
 Initial Effective Date:   September 10, 2026
-Change Date:              September 10, 2030
+Change Date:              September 1, 2030
 Change License:           Apache License, Version 2.0 (Apache-2.0)
 
 Additional Use Grant:
@@ -13,9 +13,10 @@ evaluation, educational use, and commercial applications by any individual or en
 whose gross annual revenue from all sources is less than $30,000 USD.
 
 For any entity or individual generating equal to or exceeding $30,000 USD in gross annual 
-revenue, a separate Commercial License ($500 USD flat fee per application or seat) 
-granted by the Licensor is required prior to commercial deployment, compilation, 
-or integration.
+revenue, a separate Commercial License ($1,500 USD per year per Title) granted by the 
+Licensor is required prior to commercial deployment, compilation, or integration.
+
+Enterprise support with a Service Level Agreement (SLA) is available upon request.
 
 --------------------------------------------------------------------------------
 

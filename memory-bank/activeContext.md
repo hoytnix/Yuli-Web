@@ -1,9 +1,11 @@
 # Active Context: @yuli-ai/web
 
 ## Current Status
-- Package version: `0.4.0` (Loading Interstitial & Cache Detection API)
+- Package version: `0.5.1`
 - Standardized package manager: `pnpm` (configured in `GEMINI.md` and `techContext.md`)
 - Deployment policy: Strict prohibition on publishing to npmjs without explicit prior user instruction.
+- License configuration: BSL 1.1 converting to Apache 2.0 on September 1st, 2030. $1,500/yr per Title commercial license for entities grossing >=$30,000 USD. Enterprise support with SLA available upon request.
+- Documentation: Comprehensive README.md overhaul matching Return architectural standard with interactive mermaid flowchart, architectural invariants, and quick start guides.
 - Subsystems implemented:
   - Universal Character FSM (`src/fsm/character-fsm.ts`)
   - Dynamic Action Grammar Compiler (`src/fsm/action-grammar.ts`)

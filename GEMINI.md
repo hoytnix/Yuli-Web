@@ -95,8 +95,8 @@ You operate strictly under one of two modes based on task complexity:
 
 7. **Business Source License 1.1 (BSL 1.1) Compliance**:
    * The package operates under BSL 1.1: free for non-commercial use and commercial operations generating under $30,000 USD gross annual revenue.
-   * Entities grossing $\ge \$30,000$ require a $500 USD commercial license.
-   * Code automatically transitions to Apache License 2.0 four (4) years from the effective initial release date.
+   * Entities grossing $\ge \$30,000$ require a $1,500 USD per year per Title commercial license. Enterprise support with a SLA is available upon request.
+   * Code automatically transitions to Apache License 2.0 on September 1st, 2030.
    * Runtime license declarations in `src/index.ts` must stay synchronized with the root `LICENSE` file.
 
 ---

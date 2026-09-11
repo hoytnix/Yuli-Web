@@ -18,4 +18,6 @@
 ## Licensing
 - Business Source License 1.1 (BSL 1.1).
 - Free for non-commercial use and commercial entities generating <$30,000 USD gross annual revenue.
-- Automatically transitions to Apache 2.0 four years post-release.
+- Commercial License for entities grossing >=$30,000 USD: $1,500 per year per Title.
+- Enterprise support with a Service Level Agreement (SLA) available upon request.
+- Automatically transitions to Apache 2.0 on September 1st, 2030.

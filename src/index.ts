@@ -3,7 +3,9 @@
  * 
  * Licensed under the Business Source License 1.1 (BSL 1.1).
  * Free for individuals and studios earning under $30,000 USD gross annual revenue.
- * For commercial operations >= $30,000 USD, a commercial license ($500 flat) is required.
+ * For commercial operations >= $30,000 USD, a commercial license ($1,500/yr per Title) is required.
+ * Enterprise support with a Service Level Agreement (SLA) is available upon request.
+ * Automatically converts to Apache 2.0 on September 1st, 2030.
  */
 
 export { YuliClient, DEFAULT_WASM_PATH } from './client';
@@ -72,7 +74,11 @@ export type { DialoguePipelineOptions, ParsedResponse, ParsedModelResponse } fro
 export const YULI_LICENSE = {
   type: 'BSL 1.1',
   freeRevenueTierCapUSD: 30000,
-  commercialLicenseFeeUSD: 500,
+  commercialLicenseFeeUSD: 1500,
+  commercialLicensePeriod: 'annual',
+  commercialLicenseScope: 'per-title',
+  enterpriseSupportAvailable: true,
   conversionLicense: 'Apache-2.0',
+  changeDate: '2030-09-01',
   changeDateYears: 4
 } as const;
