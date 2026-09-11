@@ -146,79 +146,50 @@ export function parseModelResponse(rawOutput: string): ParsedResponse {
   }
 
   let activeState = '<s:00>';
+  let thought = '';
+  let dialogue = rawOutput;
 
-  // 1. Extract any state vector or hex token anywhere in the string
+  // 1. Extract active state vector (<s:XX>)
   const stateMatch = rawOutput.match(/<state_vector>\s*(<s:[0-9A-F]{2}>)\s*<\/state_vector>/i) ||
                      rawOutput.match(/(<s:[0-9A-F]{2}>)/);
   if (stateMatch) {
     activeState = stateMatch[1].trim();
   }
 
-  let thought = '';
-  let dialogue = rawOutput;
-
-  // 2. Handle malformed tag pattern: <thought></thought><state_vector>...</state_vector>\n[Thought]\n</thought>\n[Dialogue]
-  const leakedPatternMatch = rawOutput.match(/<\/state_vector>\s*([\s\S]*?)\s*<\/thought>\s*([\s\S]*)$/i);
-  const leakedCandidate = leakedPatternMatch
-    ? leakedPatternMatch[1].replace(/<\/?(?:thought|state_vector)[^>]*>/gi, '').trim()
-    : '';
-
-  if (leakedPatternMatch && leakedCandidate) {
-    thought = leakedCandidate;
-    dialogue = leakedPatternMatch[2]
-      .replace(/<state_vector>[\s\S]*?<\/state_vector>/gi, '')
-      .trim();
+  // 2. Check for valid standard <thought>...</thought> blocks
+  const standardThoughtMatch = rawOutput.match(/<thought>([\s\S]*?)<\/thought>/i);
+  if (standardThoughtMatch && standardThoughtMatch[1].trim().length > 0) {
+    thought = standardThoughtMatch[1].trim();
+    const parts = rawOutput.split(/<\/thought>/i);
+    if (parts.length > 1) {
+      dialogue = parts.slice(1).join('</thought>');
+    }
   } else {
-    // Standard extraction fallback for explicit <thought>...</thought> blocks
-    const standardThoughtMatch = rawOutput.match(/<thought>([\s\S]*?)<\/thought>/i);
-    if (standardThoughtMatch && standardThoughtMatch[1].trim()) {
-      thought = standardThoughtMatch[1].trim();
-    }
-
-    // Fallback: Catch custom metadata tags like <tension ...>
-    const tensionMatch = rawOutput.match(/<tension[^>]*>([\s\S]*?)<\/tension>/i);
-    if (!thought && tensionMatch && tensionMatch[1].trim()) {
-      thought = tensionMatch[1].trim();
-    }
-
-    dialogue = rawOutput
-      .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
-      .replace(/<tension[^>]*>[\s\S]*?<\/tension>/gi, '')
-      .replace(/<state_vector>[\s\S]*?<\/state_vector>/gi, '')
-      .trim();
-  }
-
-  // 3. Multi-pass tag stripper to purge all XML tags and raw state tokens
-  let cleaned = dialogue
-    .replace(/<\/?(?:thought|dna|state_vector|tension)[^>]*>/gi, '')
-    .replace(/<s:[0-9A-F]{2}>/gi, '')
-    .trim();
-
-  // 4. Split cleaned text into non-empty lines for heuristic splitting if thought is not yet extracted
-  if (!thought) {
-    const lines = cleaned.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-
-    if (lines.length > 1) {
-      // Heuristic: If the first line reads like a cognitive evaluation or strategy note, 
-      // treat it as the thought trace, and everything else as dialogue.
-      const firstLine = lines[0];
-      const isThoughtIndicator = /^(using|evaluating|assessing|shifting|analyzing|tension|observing|calibrating|recognizing|resolving)/i.test(firstLine);
-
-      if (isThoughtIndicator || lines.length > 2) {
-        thought = firstLine;
-        cleaned = lines.slice(1).join('\n').trim();
+    // 3. Handle malformed interleaving: </state_vector> [Thought Text] </thought> [Dialogue]
+    const malformedMatch = rawOutput.match(/<\/state_vector>\s*([\s\S]*?)\s*<\/thought>\s*([\s\S]*)$/i);
+    if (malformedMatch) {
+      thought = malformedMatch[1].trim();
+      dialogue = malformedMatch[2].trim();
+    } else {
+      // 4. Heuristic Fallback: Inspect leading lines for cognitive metadata triggers
+      const lines = rawOutput.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length > 1 && /^(using|evaluating|assessing|shifting|analyzing|tension|observing|calibrating|recognizing|resolving)/i.test(lines[0])) {
+        thought = lines[0];
+        dialogue = lines.slice(1).join('\n');
       }
     }
   }
 
-  dialogue = cleaned;
+  // 5. Purge remaining XML artifacts and raw tokens from dialogue and thought
+  dialogue = dialogue
+    .replace(/<\/?(?:thought|dna|state_vector|tension)[^>]*>/gi, '')
+    .replace(/<s:[0-9A-F]{2}>/gi, '')
+    .trim();
 
-  // 5. If the entire output was wrapped in thoughts and nothing was left for dialogue, 
-  // ensure we don't display an empty bubble.
-  if (!dialogue && thought) {
-    dialogue = thought;
-    thought = 'Parsed from direct output stream.';
-  }
+  thought = thought
+    .replace(/<\/?(?:thought|dna|state_vector|tension)[^>]*>/gi, '')
+    .replace(/<s:[0-9A-F]{2}>/gi, '')
+    .trim();
 
   return {
     thought: thought || 'Context calibrated.',

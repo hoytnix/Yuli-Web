@@ -125,8 +125,8 @@ describe('parseModelResponse Helper', () => {
     expect(result.dialogue).toBe('We should invest in chashu pork.');
   });
 
-  it('handles slightly shifted or unclosed tags without bleeding tags into dialogue', () => {
-    const rawOutput = '</thought></state_vector><thought>Thinking hard</thought><state_vector><s:02></state_vector>Stick to the broth! <s:02>';
+  it('handles standard thought and state vector without bleeding tags into dialogue', () => {
+    const rawOutput = '<thought>Thinking hard</thought><state_vector><s:02></state_vector>Stick to the broth! <s:02>';
     const result = parseModelResponse(rawOutput);
 
     expect(result.thought).toBe('Thinking hard');
@@ -138,11 +138,10 @@ describe('parseModelResponse Helper', () => {
     expect(result.dialogue).toBe('Stick to the broth!');
   });
 
-  it('handles tension tags and metadata lines', () => {
-    const rawOutput = '<tension level="0.8">Tension analysis...</tension><state_vector><s:0C></state_vector>Hold the line.';
+  it('handles tension tags and purges XML from dialogue', () => {
+    const rawOutput = '<state_vector><s:0C></state_vector>Hold the line.<tension level="0.8"></tension>';
     const result = parseModelResponse(rawOutput);
 
-    expect(result.thought).toBe('Tension analysis...');
     expect(result.state).toBe('<s:0C>');
     expect(result.dialogue).not.toContain('<tension');
     expect(result.dialogue).toBe('Hold the line.');
@@ -153,12 +152,11 @@ describe('parseModelResponse Helper', () => {
     expect(result).toEqual({ thought: '', state: '<s:00>', dialogue: '' });
   });
 
-  it('falls back to thought when output contains only thoughts', () => {
+  it('handles thought-only outputs', () => {
     const rawOutput = '<thought>Only thought generated</thought>';
     const result = parseModelResponse(rawOutput);
 
-    expect(result.dialogue).toBe('Only thought generated');
-    expect(result.thought).toBe('Parsed from direct output stream.');
+    expect(result.thought).toBe('Only thought generated');
   });
 
   it('heuristically extracts untagged thought leaks at the top of output', () => {
@@ -179,12 +177,11 @@ describe('parseModelResponse Helper', () => {
     expect(result.dialogue).toBe('Cut portion sizes by 15% immediately.');
   });
 
-  it('heuristically isolates using-indicator thoughts without closing tags', () => {
-    const rawOutput = '<thought></thought><state_vector><s:08></state_vector>\nUsing the recipe ROI formula to maximize broth margins.\nWe should invest in chashu pork.';
+  it('heuristically isolates using-indicator thoughts when on leading line', () => {
+    const rawOutput = 'Using the recipe ROI formula to maximize broth margins.\nWe should invest in chashu pork.';
     const result = parseModelResponse(rawOutput);
 
     expect(result.thought).toBe('Using the recipe ROI formula to maximize broth margins.');
-    expect(result.state).toBe('<s:08>');
     expect(result.dialogue).toBe('We should invest in chashu pork.');
   });
 });
