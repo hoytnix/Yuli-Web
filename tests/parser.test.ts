@@ -137,4 +137,27 @@ describe('parseModelResponse Helper', () => {
     expect(result.dialogue).not.toContain('<s:02>');
     expect(result.dialogue).toBe('Stick to the broth!');
   });
+
+  it('handles tension tags and metadata lines', () => {
+    const rawOutput = '<tension level="0.8">Tension analysis...</tension><state_vector><s:0C></state_vector>Hold the line.';
+    const result = parseModelResponse(rawOutput);
+
+    expect(result.thought).toBe('Tension analysis...');
+    expect(result.state).toBe('<s:0C>');
+    expect(result.dialogue).not.toContain('<tension');
+    expect(result.dialogue).toBe('Hold the line.');
+  });
+
+  it('handles empty raw output safely', () => {
+    const result = parseModelResponse('');
+    expect(result).toEqual({ thought: '', state: '<s:00>', dialogue: '' });
+  });
+
+  it('falls back to thought when output contains only thoughts', () => {
+    const rawOutput = '<thought>Only thought generated</thought>';
+    const result = parseModelResponse(rawOutput);
+
+    expect(result.dialogue).toBe('Only thought generated');
+    expect(result.thought).toBe('Parsed from direct output stream.');
+  });
 });

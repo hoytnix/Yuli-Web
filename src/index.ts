@@ -67,7 +67,7 @@ export { TypewriterBuffer } from './dialogue/typewriter';
 export type { TypewriterOptions } from './dialogue/typewriter';
 
 export { DialoguePipeline, parseModelResponse } from './dialogue/pipeline';
-export type { DialoguePipelineOptions, ParsedModelResponse } from './dialogue/pipeline';
+export type { DialoguePipelineOptions, ParsedResponse, ParsedModelResponse } from './dialogue/pipeline';
 
 export const YULI_LICENSE = {
   type: 'BSL 1.1',

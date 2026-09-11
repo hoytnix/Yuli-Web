@@ -68,8 +68,8 @@ export class DialoguePipeline<TCustomIntents extends string = string> {
           ? token.replace(/[*_#`~]/g, '')
           : token;
         const cleanToken = sanitized
-          .replace(/<\/?(?:thought|state_vector|dna)>/g, '')
-          .replace(/<s:[0-9A-Fa-f]{2}>/g, '');
+          .replace(/<\/?(?:thought|state_vector|dna|tension)[^>]*>/gi, '')
+          .replace(/<s:[0-9A-Fa-f]{2}>/gi, '');
 
         if (cleanToken.length > 0) {
           this.fullDialogue += cleanToken;
@@ -83,7 +83,7 @@ export class DialoguePipeline<TCustomIntents extends string = string> {
         }
       },
       onThought: (thought: string) => {
-        const cleanThought = thought.replace(/<\/?thought>/g, '');
+        const cleanThought = thought.replace(/<\/?(?:thought|tension)[^>]*>/gi, '');
         if (cleanThought.length > 0) {
           this.fullThought += cleanThought;
           if (cleanThought.includes('<action>')) {
@@ -132,39 +132,71 @@ export class DialoguePipeline<TCustomIntents extends string = string> {
   }
 }
 
-export interface ParsedModelResponse {
+export interface ParsedResponse {
   thought: string;
   state: string;
   dialogue: string;
 }
 
+export type ParsedModelResponse = ParsedResponse;
+
 /**
- * Extracts thought and state vector from raw model output and completely strips
- * all cognitive deliberation tags from the dialogue body to prevent UI tag bleeding.
+ * Robustly parses model output, stripping all internal cognitive traces,
+ * tension markers, state vectors, and DNA strings from the public dialogue,
+ * routing them correctly into the deliberation view.
  */
-export function parseModelResponse(rawOutput: string): ParsedModelResponse {
-  // 1. Extract thought block safely
-  const thoughtMatch = rawOutput.match(/<thought>([\s\S]*?)<\/thought>/);
-  const thought = thoughtMatch ? thoughtMatch[1].trim() : '';
+export function parseModelResponse(rawOutput: string): ParsedResponse {
+  if (!rawOutput) {
+    return { thought: '', state: '<s:00>', dialogue: '' };
+  }
 
-  // 2. Extract state vector or terminal DNA state
-  const stateMatch = rawOutput.match(/<state_vector>([\s\S]*?)<\/state_vector>/) || 
-                     rawOutput.match(/<dna>([\s\S]*?)<\/dna>/);
-  const state = stateMatch ? stateMatch[1].trim() : '<s:00>';
+  let thoughtContent = '';
+  let activeState = '<s:00>';
 
-  // 3. Strip ALL cognitive tags from the dialogue body completely
-  let dialogue = rawOutput
-    .replace(/<thought>[\s\S]*?<\/thought>/g, '')
-    .replace(/<state_vector>[\s\S]*?<\/state_vector>/g, '')
-    .replace(/<\/?thought>/g, '')
-    .replace(/<\/?state_vector>/g, '')
-    .replace(/<\/?dna>/g, '')
-    .replace(/<s:[0-9A-Fa-f]{2}>/g, '')
+  // 1. Extract standard <thought>...</thought> blocks
+  const thoughtMatch = rawOutput.match(/<thought>([\s\S]*?)<\/thought>/i);
+  if (thoughtMatch) {
+    thoughtContent = thoughtMatch[1].trim();
+  }
+
+  // 2. Fallback: Catch custom metadata tags like <tension ...> or unclosed thought headers if present
+  const tensionMatch = rawOutput.match(/<(?:tension|thought|dna)[^>]*>([\s\S]*?)(?:<\/(?:tension|thought|dna)>|$)/i);
+  if (!thoughtContent && tensionMatch) {
+    thoughtContent = tensionMatch[1].trim();
+  }
+
+  // 3. Extract state vector or terminal DNA state token (<s:XX>)
+  const stateMatch = rawOutput.match(/<state_vector>\s*(<s:[0-9A-F]{2}>)\s*<\/state_vector>/i) ||
+                     rawOutput.match(/(<s:[0-9A-F]{2}>)/i);
+  if (stateMatch) {
+    activeState = stateMatch[1].trim();
+  }
+
+  // 4. Clean dialogue: Strip all internal tags, XML blocks, and leaked metadata lines
+  let cleanDialogue = rawOutput
+    // Remove standard XML thought/dna/state/tension blocks completely
+    .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+    .replace(/<dna>[\s\S]*?<\/dna>/gi, '')
+    .replace(/<state_vector>[\s\S]*?<\/state_vector>/gi, '')
+    .replace(/<tension[^>]*>[\s\S]*?<\/tension>/gi, '')
+    // Remove standalone tags or stray headers like <tension 0.8> or </thought>
+    .replace(/<\/?(?:thought|dna|state_vector|tension)[^>]*>/gi, '')
+    // Remove raw hex state tokens from the dialogue body
+    .replace(/<s:[0-9A-F]{2}>/gi, '')
+    // Clean up excessive whitespace or leading artifacts left behind
+    .replace(/^\s*[\r\n]/gm, '')
     .trim();
 
+  // If the entire output was wrapped in thoughts and nothing was left for dialogue, 
+  // ensure we don't display an empty bubble.
+  if (!cleanDialogue && thoughtContent) {
+    cleanDialogue = thoughtContent;
+    thoughtContent = 'Parsed from direct output stream.';
+  }
+
   return {
-    thought,
-    state,
-    dialogue // Clean user-facing text
+    thought: thoughtContent || 'Context calibrated and evaluated.',
+    state: activeState,
+    dialogue: cleanDialogue
   };
 }

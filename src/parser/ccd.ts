@@ -70,8 +70,8 @@ export class CCDStreamParser {
 
   private emitToken(token: string) {
     const cleaned = token
-      .replace(/<\/?(?:thought|state_vector|dna)>/g, '')
-      .replace(/<s:[0-9A-Fa-f]{2}>/g, '');
+      .replace(/<\/?(?:thought|state_vector|dna|tension)[^>]*>/gi, '')
+      .replace(/<s:[0-9A-Fa-f]{2}>/gi, '');
     if (cleaned.length > 0) {
       this.onTokenCb(cleaned);
     }
@@ -84,7 +84,7 @@ export class CCDStreamParser {
 
       // Strip orphan closing tags or state markers at buffer head
       if (!this.inThought && !this.inStateVector) {
-        const orphanTagMatch = this.buffer.match(/^(?:<\/(?:thought|state_vector|dna)>|<dna>|<\/dna>|<s:[0-9A-Fa-f]{2}>)/);
+        const orphanTagMatch = this.buffer.match(/^(?:<\/(?:thought|state_vector|dna|tension)>|<(?:dna|tension)[^>]*>|<\/dna>|<s:[0-9A-Fa-f]{2}>)/i);
         if (orphanTagMatch) {
           this.buffer = this.buffer.slice(orphanTagMatch[0].length);
           changed = true;
@@ -180,7 +180,7 @@ export class CCDStreamParser {
         this.emitToken(this.buffer.slice(0, tagOpenIndex));
         this.buffer = this.buffer.slice(tagOpenIndex);
       } else {
-        const couldBeTag = /^<\/?(?:t(?:h(?:o(?:u(?:g(?:h(?:t)?)?)?)?)?)?|s(?:t(?:a(?:t(?:e(?:_(?:v(?:e(?:c(?:t(?:o(?:r)?)?)?)?)?)?)?)?)?)?)?|d(?:n(?:a)?)?|s(?::[0-9A-Fa-f]{0,2})?)?>?/.test(this.buffer);
+        const couldBeTag = /^<\/?(?:t(?:h(?:o(?:u(?:g(?:h(?:t)?)?)?)?)?)?|t(?:e(?:n(?:s(?:i(?:o(?:n)?)?)?)?)?)?|s(?:t(?:a(?:t(?:e(?:_(?:v(?:e(?:c(?:t(?:o(?:r)?)?)?)?)?)?)?)?)?)?)?|d(?:n(?:a)?)?|s(?::[0-9A-Fa-f]{0,2})?)?>?/i.test(this.buffer);
         if (couldBeTag && this.buffer.length < 20) {
           break;
         }
@@ -194,8 +194,8 @@ export class CCDStreamParser {
   public flush() {
     if (this.inThought) {
       const cleanThought = this.buffer
-        .replace(/<\/?(?:thought|state_vector|dna)>/g, '')
-        .replace(/<s:[0-9A-Fa-f]{2}>/g, '');
+        .replace(/<\/?(?:thought|state_vector|dna|tension)[^>]*>/gi, '')
+        .replace(/<s:[0-9A-Fa-f]{2}>/gi, '');
       if (cleanThought.length > 0) {
         this.scanForDeltas(cleanThought);
         this.onThoughtCb(cleanThought);
