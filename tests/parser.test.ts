@@ -178,4 +178,13 @@ describe('parseModelResponse Helper', () => {
     expect(result.state).toBe('<s:04>');
     expect(result.dialogue).toBe('Cut portion sizes by 15% immediately.');
   });
+
+  it('heuristically isolates using-indicator thoughts without closing tags', () => {
+    const rawOutput = '<thought></thought><state_vector><s:08></state_vector>\nUsing the recipe ROI formula to maximize broth margins.\nWe should invest in chashu pork.';
+    const result = parseModelResponse(rawOutput);
+
+    expect(result.thought).toBe('Using the recipe ROI formula to maximize broth margins.');
+    expect(result.state).toBe('<s:08>');
+    expect(result.dialogue).toBe('We should invest in chashu pork.');
+  });
 });
