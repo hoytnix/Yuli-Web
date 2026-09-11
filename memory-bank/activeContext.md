@@ -5,7 +5,7 @@
 - Standardized package manager: `pnpm` (configured in `GEMINI.md` and `techContext.md`)
 - Deployment policy: Strict prohibition on publishing to npmjs without explicit prior user instruction.
 - License configuration: BSL 1.1 converting to Apache 2.0 on September 1st, 2030. $1,500/yr per Title commercial license for entities grossing >=$30,000 USD. Enterprise support with SLA available upon request.
-- Documentation: Comprehensive README.md overhaul matching Return architectural standard with interactive mermaid flowchart, architectural invariants, and quick start guides; typography polished (standard Unicode arrows `→` replacing LaTeX artifacts).
+- Documentation: Comprehensive README.md overhaul matching Return architectural standard with interactive mermaid flowchart, architectural invariants, and quick start guides; typography polished (standard Unicode arrows `→` replacing LaTeX artifacts); Mermaid flowchart hardened for GitHub rendering by quoting labels with special characters and escaping `<`/`>` with HTML entities (`&lt;`/`&gt;`).
 - Subsystems implemented:
   - Universal Character FSM (`src/fsm/character-fsm.ts`)
   - Dynamic Action Grammar Compiler (`src/fsm/action-grammar.ts`)

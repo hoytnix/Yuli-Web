@@ -32,10 +32,10 @@ flowchart TD
     HostThread --> Client["YuliClient / Character FSM"]
     
     subgraph BackgroundWorker ["Dedicated Web Worker (src/worker.ts)"]
-        Client -->|postMessage / SharedArrayBuffer Ring Buffer| WorkerRPC["Worker RPC Handler"]
+        Client -->|"postMessage / SharedArrayBuffer Ring Buffer"| WorkerRPC["Worker RPC Handler"]
         WorkerRPC --> StorageCheck{"OPFS Storage Check"}
-        StorageCheck -->|Cache Miss| StreamDownload["Chunked HTTP Stream -> OPFS Storage"]
-        StorageCheck -->|Cache Hit (<250ms)| MountOPFS["Zero-Heap OPFS Binary Mount"]
+        StorageCheck -->|Cache Miss| StreamDownload["Chunked HTTP Stream → OPFS Storage"]
+        StorageCheck -->|"Cache Hit (&lt;250ms)"| MountOPFS["Zero-Heap OPFS Binary Mount"]
         
         StreamDownload --> EngineInit["Wllama Engine Init"]
         MountOPFS --> EngineInit
@@ -52,9 +52,9 @@ flowchart TD
         Inference --> PDA["CCDStreamParser (Inline Pushdown Automaton)"]
     end
     
-    PDA -->|Internal Reasoning| ThoughtStream["<thought> Deliberation Drawer & Telemetry"]
-    PDA -->|Hypercube State| StateVector["<state_vector> 4D Coordinate Blending (Ego/Shadow/Sub/Superego)"]
-    PDA -->|Custom Actions| ActionParser["Dynamic Action Grammar (<action>attack</action>)"]
+    PDA -->|Internal Reasoning| ThoughtStream["&lt;thought&gt; Deliberation Drawer & Telemetry"]
+    PDA -->|Hypercube State| StateVector["&lt;state_vector&gt; 4D Coordinate Blending (Ego/Shadow/Sub/Superego)"]
+    PDA -->|Custom Actions| ActionParser["Dynamic Action Grammar (&lt;action&gt;attack&lt;/action&gt;)"]
     PDA -->|Clean Dialogue| RingBuffer["Zero-Copy Lock-Free Ring Buffer / postMessage"]
     
     RingBuffer --> Typewriter["TypewriterBuffer (Configurable Cadence)"]
